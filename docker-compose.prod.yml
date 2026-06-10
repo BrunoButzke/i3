@@ -1,0 +1,12 @@
+services:
+  app:
+    build:
+      target: runner
+    environment:
+      NODE_ENV: production
+    volumes: !reset []
+    command: !reset ["node", "server.js"]
+
+networks:
+  i3:
+    name: i3_network

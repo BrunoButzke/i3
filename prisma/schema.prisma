@@ -1,0 +1,180 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Empresa {
+  id          Int       @id
+  nome        String
+  cnpj        String?
+  representante String?
+  usuario     String
+  senhaHash   String
+  email       String?
+  enviado     String?   // coluna Enviado (SIM/NÃO)
+  imi         Int?      // coluna IMI
+
+  respostas        Resposta[]
+  respostasFinais  RespostaFinal[]
+  swots            SWOT[]
+  okrs             OKR[]
+  metas            MetaSMART[]
+  acoes            Acao[]
+  planosDeAcao     PlanoAcao[]
+  memoriasSiri     MemoriaSIRI[]
+}
+
+model Filtro {
+  id        Int     @id @default(autoincrement())
+  estrutura String?
+  principio String?
+  respondidaPor String?
+  comObservacao String?
+  respostaEscolhida String?
+  processo  String?
+}
+
+model Questao {
+  id           String   @id @default(uuid())
+  codigo       String   // ID do Excel (ex: Q001) — pode repetir em processos diferentes
+  estrutura    String
+  principio    String
+  capacidade   String
+  processo     String
+  enunciado    String
+  alternativas Json
+
+  respostas       Resposta[]
+  respostasFinais RespostaFinal[]
+
+  @@index([codigo])
+  @@index([codigo, processo])
+}
+
+model Resposta {
+  id        Int      @id @default(autoincrement())
+  empresa   Empresa  @relation(fields: [empresaId], references: [id])
+  empresaId Int
+  questao   Questao  @relation(fields: [questaoId], references: [id])
+  questaoId String   // UUID da questão
+
+  estrutura  String
+  principio  String
+  capacidade String
+  processo   String
+  resposta   String
+  resultado  Float?
+}
+
+model SWOT {
+  id        Int      @id @default(autoincrement())
+  empresa   Empresa  @relation(fields: [empresaId], references: [id])
+  empresaId Int
+
+  forca       String?
+  fraqueza    String?
+  oportunidade String?
+  ameaca      String?
+}
+
+model OKR {
+  id        Int      @id @default(autoincrement())
+  empresa   Empresa  @relation(fields: [empresaId], references: [id])
+  empresaId Int
+
+  objetivo String
+  okr1     String?
+  okr2     String?
+  okr3     String?
+}
+
+model MetaSMART {
+  id        Int      @id @default(autoincrement())
+  empresa   Empresa  @relation(fields: [empresaId], references: [id])
+  empresaId Int
+
+  objetivo    String
+  especifica  String?
+  mensuravel  String?
+  alcancavel  String?
+  relevante   String?
+  temporal    String?
+}
+
+model Acao {
+  id         Int     @id
+  empresa    Empresa @relation(fields: [empresaId], references: [id])
+  empresaId  Int
+
+  acao       String
+  gravidade  String?
+  urgencia   String?
+  tendencia  String?
+  pontuacao  String?
+  prioridade String?
+}
+
+model PlanoAcao {
+  id        Int     @id
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  empresaId Int
+
+  oque      String
+  quem      String?
+  quando    DateTime?
+  onde      String?
+  porque    String?
+  como      String?
+  quanto    String?
+  status    String?
+}
+
+model MemoriaSIRI {
+  id        Int     @id @default(autoincrement())
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  empresaId Int     @unique
+
+  dados     Json
+}
+
+model MacroDimensao {
+  id        Int      @id @default(autoincrement())
+  nome      String
+  nivel     Int
+  texto     String
+}
+
+model RespostaFinal {
+  id        Int      @id @default(autoincrement())
+  empresa   Empresa  @relation(fields: [empresaId], references: [id])
+  empresaId Int
+
+  estrutura  String
+  principio  String
+  capacidade String
+  processo   String
+  codigo     String   // ID do Excel (ex: Q001)
+  questaoId  String?  // UUID da questão (quando vinculada)
+  questao    Questao? @relation(fields: [questaoId], references: [id])
+  resposta   String
+  resultado  Float?
+
+  @@index([codigo])
+}
+
+model Segmento {
+  id       Int     @id
+  empresa  String
+  origem   String?
+  // demais indicadores numéricos em Json para simplificar
+  indicadores Json?
+}
