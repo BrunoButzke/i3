@@ -1,4 +1,5 @@
 import { Prisma } from "@/generated/prisma/client";
+import { limitAcaoText } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import {
   buildQuestaoLookup,
@@ -407,6 +408,7 @@ export async function salvarAcoes(
     )._max.id ?? 0;
 
   for (const a of acoes) {
+    const acaoText = limitAcaoText(a.acao);
     let id = a.id;
     if (id) {
       const exists = await prisma.acao.findUnique({ where: { id } });
@@ -414,7 +416,7 @@ export async function salvarAcoes(
         await prisma.acao.update({
           where: { id },
           data: {
-            acao: a.acao,
+            acao: acaoText,
             gravidade: a.gravidade,
             urgencia: a.urgencia,
             tendencia: a.tendencia,
@@ -427,7 +429,7 @@ export async function salvarAcoes(
           data: {
             id,
             empresaId: a.empresa,
-            acao: a.acao,
+            acao: acaoText,
             gravidade: a.gravidade,
             urgencia: a.urgencia,
             tendencia: a.tendencia,
@@ -443,7 +445,7 @@ export async function salvarAcoes(
         data: {
           id,
           empresaId: a.empresa,
-          acao: a.acao,
+          acao: acaoText,
           gravidade: a.gravidade,
           urgencia: a.urgencia,
           tendencia: a.tendencia,
@@ -457,11 +459,11 @@ export async function salvarAcoes(
     if (planoExists) {
       await prisma.planoAcao.update({
         where: { id },
-        data: { oque: a.acao },
+        data: { oque: acaoText },
       });
     } else {
       await prisma.planoAcao.create({
-        data: { id, empresaId: a.empresa, oque: a.acao, status: "pendente" },
+        data: { id, empresaId: a.empresa, oque: acaoText, status: "pendente" },
       });
     }
   }

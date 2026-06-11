@@ -7,14 +7,36 @@ import {
   useState,
 } from "react";
 
+export type ConfirmOptions = {
+  title?: string;
+  confirmLabel?: string;
+  warning?: string | null;
+  confirmVariant?: "primary" | "danger";
+  confirmIcon?: string;
+};
+
 type ConfirmState = {
   message: string;
   onConfirm: () => void;
+  options: ConfirmOptions;
 };
 
 type ModalContextValue = {
   showModal: (message: string) => void;
-  showConfirm: (message: string, onConfirm: () => void) => void;
+  showConfirm: (
+    message: string,
+    onConfirm: () => void,
+    options?: ConfirmOptions,
+  ) => void;
+};
+
+const ENVIAR_DEFAULTS: ConfirmOptions = {
+  title: "Confirmar envio",
+  confirmLabel: "Sim, enviar",
+  warning:
+    "Esta ação é irreversível e o formulário não poderá mais ser atualizado.",
+  confirmVariant: "primary",
+  confirmIcon: "bi-send",
 };
 
 const ModalContext = createContext<ModalContextValue>({
@@ -28,82 +50,89 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
 
   const showModal = useCallback((msg: string) => setMessage(msg), []);
   const showConfirm = useCallback(
-    (msg: string, onConfirm: () => void) =>
-      setConfirm({ message: msg, onConfirm }),
+    (msg: string, onConfirm: () => void, options?: ConfirmOptions) =>
+      setConfirm({
+        message: msg,
+        onConfirm,
+        options: { ...ENVIAR_DEFAULTS, ...options },
+      }),
     [],
   );
+
+  const confirmOpts = confirm?.options ?? ENVIAR_DEFAULTS;
 
   return (
     <ModalContext.Provider value={{ showModal, showConfirm }}>
       {children}
       {message !== null && (
-        <div
-          className="modal fade show d-block"
-          tabIndex={-1}
-          style={{ backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1262 }}
-        >
-          <div className="modal-dialog modal-md modal-dialog-centered">
-            <div className="modal-content border-0 shadow-lg rounded-4">
-              <div className="modal-body text-center py-4">
-                <p className="mb-0">{message}</p>
-              </div>
-              <div className="modal-footer justify-content-center border-0 pb-4">
-                <button
-                  type="button"
-                  className="btn btn-primary px-4"
-                  onClick={() => setMessage(null)}
-                >
-                  Ok
-                </button>
-              </div>
+        <div className="i3-modal-backdrop" onClick={() => setMessage(null)}>
+          <div
+            className="i3-modal"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+          >
+            <div className="i3-modal-body text-center py-4">
+              <i
+                className="bi bi-info-circle text-primary mb-3 d-block"
+                style={{ fontSize: "2rem" }}
+              />
+              <p className="mb-0">{message}</p>
+            </div>
+            <div className="i3-modal-footer center">
+              <button
+                type="button"
+                className="btn btn-primary px-4"
+                onClick={() => setMessage(null)}
+              >
+                Ok
+              </button>
             </div>
           </div>
         </div>
       )}
       {confirm !== null && (
-        <div
-          className="modal fade show d-block"
-          tabIndex={-1}
-          style={{ backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1262 }}
-        >
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">Confirmar Envio</h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  aria-label="Fechar"
-                  onClick={() => setConfirm(null)}
-                />
-              </div>
-              <div className="modal-body">
-                {confirm.message}
-                <br />
-                <br />
-                <strong>Atenção:</strong> Esta ação é irreversível e o
-                formulário não poderá mais ser atualizado.
-              </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setConfirm(null)}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-success"
-                  onClick={() => {
-                    const fn = confirm.onConfirm;
-                    setConfirm(null);
-                    fn();
+        <div className="i3-modal-backdrop">
+          <div className="i3-modal i3-modal-lg" role="dialog">
+            <div className="i3-modal-header">
+              <h5 className="i3-modal-title">{confirmOpts.title}</h5>
+            </div>
+            <div className="i3-modal-body">
+              <p className="mb-0">{confirm.message}</p>
+              {confirmOpts.warning && (
+                <div
+                  className="p-3 rounded mt-3"
+                  style={{
+                    background: "var(--i3-blue-50)",
+                    border: "1px solid var(--i3-blue-200)",
+                    fontSize: "0.875rem",
                   }}
                 >
-                  Sim, Enviar
-                </button>
-              </div>
+                  <strong>Atenção:</strong> {confirmOpts.warning}
+                </div>
+              )}
+            </div>
+            <div className="i3-modal-footer">
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={() => setConfirm(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className={`btn btn-${confirmOpts.confirmVariant ?? "primary"}`}
+                onClick={() => {
+                  const fn = confirm.onConfirm;
+                  setConfirm(null);
+                  fn();
+                }}
+              >
+                {confirmOpts.confirmIcon && (
+                  <i className={`bi ${confirmOpts.confirmIcon} me-1`} />
+                )}
+                {confirmOpts.confirmLabel}
+              </button>
             </div>
           </div>
         </div>

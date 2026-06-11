@@ -23,6 +23,13 @@ export const PROCESSOS_PADRAO = [
 
 export const SESSION_COOKIE = "i3_session";
 
+/** Limite de caracteres para o texto da ação (Priorização / Plano / Acompanhamento). */
+export const ACAO_MAX_LENGTH = 80;
+
+export function limitAcaoText(text: string): string {
+  return text.slice(0, ACAO_MAX_LENGTH);
+}
+
 export type TabId =
   | "diagnostico"
   | "swot"

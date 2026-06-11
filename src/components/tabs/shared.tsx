@@ -8,10 +8,7 @@ export function TabBlocoHeader({
   badge?: string;
 }) {
   return (
-    <h5
-      className={`text-start mb-3 p-2 rounded d-flex justify-content-between align-items-center`}
-      style={{ backgroundColor: "#dbeafe" }}
-    >
+    <h5 className="i3-section-header">
       <span>{title}</span>
       {badge && <span className="badge bg-secondary">{badge}</span>}
     </h5>
@@ -69,9 +66,7 @@ export function TabBloco({
   className?: string;
 }) {
   return (
-    <div
-      className={`border p-3 rounded bg-white position-relative ${className}`}
-    >
+    <div className={`i3-bloco ${className}`}>
       <TabBlocoHeader title={title} badge={badge} />
       {children}
     </div>
@@ -92,10 +87,10 @@ export function calcularPrioridadeGUT(g: number, u: number, t: number): {
 }
 
 export const STATUS_ACOMPANHAMENTO = {
-  pendente: { label: "Pendente", color: "#ffc107" },
-  executando: { label: "Executando", color: "#0d6efd" },
-  concluido: { label: "Concluído", color: "#198754" },
-  cancelado: { label: "Cancelado", color: "#dc3545" },
+  pendente: { label: "Pendente", color: "#d97706" },
+  executando: { label: "Executando", color: "#2563eb" },
+  concluido: { label: "Concluído", color: "#16a34a" },
+  cancelado: { label: "Cancelado", color: "#dc2626" },
 } as const;
 
 export type StatusAcompanhamento = keyof typeof STATUS_ACOMPANHAMENTO;

@@ -143,7 +143,7 @@ export function DiagnosticoTab({
   }
 
   return (
-    <div className="mt-3">
+    <div>
       {processos.map((processo) => {
         const slug = slugProcesso(processo);
         const pct = progress(processo);
@@ -151,51 +151,48 @@ export function DiagnosticoTab({
         const questions = questionsByProcess[processo] ?? [];
 
         return (
-          <div key={processo} className="mb-2">
+          <div key={processo} className="i3-process-item">
             <button
               type="button"
-              className={`btn ${isOpen ? "btn-primary" : "btn-outline-primary"} text-start my-1 w-100`}
+              className={`i3-process-btn ${isOpen ? "open" : ""}`}
               onClick={() => setOpenProcess(isOpen ? null : processo)}
             >
-              <div className="row">
-                <div className="col-6">{processo}</div>
-                <div className="col my-1">
-                  <div className={`progress bg-primary ${isOpen ? "active" : ""}`}>
-                    <div
-                      className="progress-bar bg-light text-primary"
-                      style={{ width: `${pct}%` }}
-                    >
-                      {pct}%
-                    </div>
-                  </div>
-                </div>
+              <div className="d-flex justify-content-between align-items-center gap-3">
+                <span className="i3-process-name">{processo}</span>
+                <span className="i3-progress-label">{pct}%</span>
+              </div>
+              <div className="progress mt-2">
+                <div
+                  className="progress-bar"
+                  role="progressbar"
+                  style={{ width: `${pct}%` }}
+                  aria-valuenow={pct}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                />
               </div>
             </button>
 
             {isOpen && (
-              <div className="container collapse show">
-                <div className="row px-4 justify-content-center">
-                  {questions.length === 0 && (
-                    <p className="text-muted">
-                      Nenhuma questão cadastrada para este processo.
-                    </p>
-                  )}
-                  {questions.map((q, idx) => (
-                    <div
-                      key={q.id}
-                      className="row text-start shadow-sm px-2 py-3 my-2 bg-body rounded w-100"
-                    >
-                      <div>
-                        <strong>QUESTÃO {idx + 1}</strong> - {q.enunciado}
-                      </div>
-                      <div className="py-3">
-                        {respostaTipos.map((tipo) => {
-                          const texto = q.alternativas[tipo];
-                          if (!texto?.trim()) return null;
-                          const checked =
-                            selections[processo]?.[q.id] === tipo;
-                          return (
-                            <div key={tipo} className="form-check">
+              <div className="i3-process-panel">
+                {questions.length === 0 && (
+                  <p className="text-muted mb-0">
+                    Nenhuma questão cadastrada para este processo.
+                  </p>
+                )}
+                {questions.map((q, idx) => (
+                  <div key={q.id} className="i3-question-card">
+                    <div className="i3-question-label">Questão {idx + 1}</div>
+                    <div className="i3-question-text">{q.enunciado}</div>
+                    <div>
+                      {respostaTipos.map((tipo) => {
+                        const texto = q.alternativas[tipo];
+                        if (!texto?.trim()) return null;
+                        const checked =
+                          selections[processo]?.[q.id] === tipo;
+                        return (
+                          <div key={tipo} className="i3-radio-option">
+                            <div className="form-check mb-0">
                               <input
                                 type="radio"
                                 className="form-check-input"
@@ -217,47 +214,53 @@ export function DiagnosticoTab({
                                 className="form-check-label"
                                 htmlFor={`${slug}-${q.id}-${tipo}`}
                               >
+                                <strong className="d-block fs-7 text-primary">
+                                  {tipo}
+                                </strong>
                                 {texto}
                               </label>
                             </div>
-                          );
-                        })}
-                      </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
         );
       })}
 
-      <div className="row text-end px-3 pt-4 pb-3">
-        <div className="col">
-          <button
-            type="button"
-            className="btn btn-primary btn-fixed-size me-2"
-            disabled={disabled || saving}
-            title="Salva as respostas, mas ainda permitirá ajustes."
-            onClick={() => save("save")}
-          >
-            <i className="bi bi-save" /> Salvar
-          </button>
-          <button
-            type="button"
-            className="btn btn-success btn-fixed-size"
-            disabled={disabled || saving}
-            title="Envia as respostas, NÃO permitirá mais ajustes."
-            onClick={() =>
-              showConfirm(
-                "Você tem certeza que deseja enviar as respostas?",
-                () => save("send"),
-              )
-            }
-          >
-            <i className="bi bi-send me-1" /> Enviar
-          </button>
-        </div>
+      <div className="i3-action-bar">
+        <button
+          type="button"
+          className="btn btn-outline-primary btn-fixed-size"
+          disabled={disabled || saving}
+          title="Salva as respostas, mas ainda permitirá ajustes."
+          onClick={() => save("save")}
+        >
+          <i className="bi bi-save me-1" /> Salvar
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary btn-fixed-size"
+          disabled={disabled || saving}
+          title="Envia as respostas, NÃO permitirá mais ajustes."
+          onClick={() =>
+            showConfirm(
+              "Você tem certeza que deseja enviar as respostas?",
+              () => save("send"),
+            )
+          }
+        >
+          {saving ? (
+            <span className="spinner-border spinner-border-sm me-1" />
+          ) : (
+            <i className="bi bi-send me-1" />
+          )}
+          Enviar
+        </button>
       </div>
     </div>
   );

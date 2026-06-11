@@ -76,13 +76,8 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="card p-4 mb-4 bg-white border rounded">
-      <h5
-        className="text-start mb-3 p-2 rounded"
-        style={{ backgroundColor: "#dbeafe" }}
-      >
-        {title}
-      </h5>
+    <div className="i3-card">
+      <h5 className="i3-section-header">{title}</h5>
       {children}
     </div>
   );
@@ -120,9 +115,9 @@ export function RelatorioTab() {
 
   if (loading) {
     return (
-      <div className="text-center my-4">
-        <div className="spinner-border text-primary" role="status" />
-        <p>Carregando relatório...</p>
+      <div className="text-center py-5">
+        <div className="i3-loading-spinner mx-auto mb-3" role="status" />
+        <p className="text-muted mb-0">Carregando relatório...</p>
       </div>
     );
   }
@@ -144,10 +139,10 @@ export function RelatorioTab() {
 
   return (
     <div className="mt-3">
-      <div className="text-end mb-3">
+      <div className="i3-action-bar mt-0 mb-3 border-0 pt-0">
         <button
           type="button"
-          className="btn btn-dark me-2"
+          className="btn btn-outline-primary"
           onClick={imprimir}
         >
           <i className="bi bi-printer me-1" /> Visualizar / Imprimir
@@ -175,11 +170,8 @@ export function RelatorioTab() {
               Nenhum dado encontrado. Responda o diagnóstico primeiro.
             </p>
           ) : (
-            <table
-              className="table table-bordered text-center align-middle"
-              style={{ fontSize: "0.9rem" }}
-            >
-              <thead style={{ backgroundColor: "#0d6efd", color: "white" }}>
+            <table className="table table-bordered text-center align-middle i3-table">
+              <thead>
                 <tr>
                   {dados.percentuaisMaturidade.map((p) => (
                     <th key={p.resposta} className="px-2">
@@ -203,8 +195,8 @@ export function RelatorioTab() {
 
         {dados.analise3B && (
           <Card title="Análise 3B (comparativo por indicador)">
-            <table className="table table-bordered text-center align-middle">
-              <thead style={{ backgroundColor: "#20c997", color: "white" }}>
+            <table className="table table-bordered text-center align-middle i3-table">
+              <thead className="i3-table-head-alt">
                 <tr>
                   <th>Indicador</th>
                   <th>Sua empresa</th>
@@ -240,11 +232,8 @@ export function RelatorioTab() {
                     {DESCRICOES_ESTRUTURA[estrutura]}
                   </p>
                 )}
-                <table
-                  className="table table-bordered text-center"
-                  style={{ fontSize: "0.9rem" }}
-                >
-                  <thead style={{ backgroundColor: "#0d6efd", color: "white" }}>
+                <table className="table table-bordered text-center i3-table">
+                  <thead>
                     <tr>
                       {items.map((i) => (
                         <th key={i.resposta}>{i.resposta}</th>
@@ -268,7 +257,7 @@ export function RelatorioTab() {
           {dados.dimensoes.length === 0 ? (
             <p className="text-muted">Nenhum dado encontrado.</p>
           ) : (
-            <table className="table table-striped" style={{ fontSize: "0.9rem" }}>
+            <table className="table table-striped i3-table">
               <thead>
                 <tr>
                   <th>Dimensão</th>
@@ -292,11 +281,8 @@ export function RelatorioTab() {
             <p className="text-muted">Nenhum dado encontrado.</p>
           ) : (
             Object.entries(gruposCapacidade).map(([chave, items]) => (
-              <div key={chave} className="card mb-3 border">
-                <div
-                  className="card-header fw-bold text-white"
-                  style={{ backgroundColor: "#2563eb" }}
-                >
+              <div key={chave} className="i3-card mb-3 p-0 overflow-hidden">
+                <div className="i3-section-header mb-0 rounded-0 border-0">
                   {chave}
                 </div>
                 <div className="card-body p-0">

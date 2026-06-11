@@ -49,78 +49,81 @@ export function DashboardClient() {
 
   if (loading || !me) {
     return (
-      <>
+      <div className="i3-page">
         <AppHeader />
         <LoadingOverlay show />
-      </>
+      </div>
     );
   }
 
   const enviado = me.enviado === "SIM";
 
   return (
-    <>
+    <div className="i3-page">
       <AppHeader />
-      <main className="container">
-        <div className="row text-center">
-          <h2>
-            {me.empresa} - {me.cnpj}
-          </h2>
-          <h4>{me.representante}</h4>
-          {enviado && (
-            <p className="text-success fw-bold">
-              Diagnóstico enviado — edição bloqueada
-            </p>
-          )}
-        </div>
-        <div className="text-end mb-2">
-          <button type="button" className="btn btn-outline-secondary btn-sm" onClick={logout}>
+      <main className="i3-main">
+        <div className="i3-company-card">
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm i3-company-logout"
+            onClick={logout}
+          >
+            <i className="bi bi-box-arrow-right me-1" />
             Sair
           </button>
+          <h2 className="i3-company-name">{me.empresa}</h2>
+          {me.cnpj && <p className="i3-company-meta">CNPJ: {me.cnpj}</p>}
+          {me.representante && (
+            <p className="i3-company-meta">{me.representante}</p>
+          )}
+          {enviado && (
+            <span className="i3-badge-enviado">
+              <i className="bi bi-check-circle-fill" />
+              Diagnóstico enviado — edição bloqueada
+            </span>
+          )}
         </div>
-        <hr />
 
-        <div className="row text-center px-4">
-        <div className="container mt-4">
-        <ul className="nav nav-tabs" role="tablist">
-          {TABS.map((tab) => (
-            <li key={tab.id} className="nav-item" role="presentation">
+        <div className="i3-tabs-wrapper">
+          <nav className="i3-tabs-nav" role="tablist">
+            {TABS.map((tab) => (
               <button
+                key={tab.id}
                 type="button"
-                className={`nav-link ${activeTab === tab.id ? "active" : ""}`}
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                className={`i3-tab-btn ${activeTab === tab.id ? "active" : ""}`}
                 onClick={() => setActiveTab(tab.id)}
               >
                 {tab.label}
               </button>
-            </li>
-          ))}
-        </ul>
+            ))}
+          </nav>
 
-        <div className="tab-content py-3" id="menuTabsContent">
-          {activeTab === "diagnostico" && (
-            <DiagnosticoTab
-              empresaId={me.id}
-              processos={me.processos}
-              respostaTipos={me.respostas}
-              enviado={enviado}
-              readonly={false}
-            />
-          )}
-          {activeTab === "swot" && <SWOTTab />}
-          {activeTab === "okr" && <OKRTab />}
-          {activeTab === "metas" && <MetasTab />}
-          {activeTab === "priorizacao" && (
-            <PriorizacaoTab empresaId={me.id} />
-          )}
-          {activeTab === "plano" && <PlanoTab />}
-          {activeTab === "acompanhamento" && <AcompanhamentoTab />}
-          {activeTab === "memoria" && <MemoriaTab />}
-          {activeTab === "relatorio" && <RelatorioTab />}
-        </div>
-        </div>
+          <div className="i3-tab-content" role="tabpanel">
+            {activeTab === "diagnostico" && (
+              <DiagnosticoTab
+                empresaId={me.id}
+                processos={me.processos}
+                respostaTipos={me.respostas}
+                enviado={enviado}
+                readonly={false}
+              />
+            )}
+            {activeTab === "swot" && <SWOTTab />}
+            {activeTab === "okr" && <OKRTab />}
+            {activeTab === "metas" && <MetasTab />}
+            {activeTab === "priorizacao" && (
+              <PriorizacaoTab empresaId={me.id} />
+            )}
+            {activeTab === "plano" && <PlanoTab />}
+            {activeTab === "acompanhamento" && <AcompanhamentoTab />}
+            {activeTab === "memoria" && <MemoriaTab />}
+            {activeTab === "relatorio" && <RelatorioTab />}
+          </div>
         </div>
       </main>
       <AppFooter />
-    </>
+    </div>
   );
 }

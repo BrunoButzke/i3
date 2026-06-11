@@ -130,26 +130,28 @@ export function MemoriaTab() {
   return (
     <form className="mt-3" onSubmit={handleSubmit}>
       <div className="custo-bloco border p-3 mb-4 rounded bg-white">
-        <h5 className="text-start mb-3 p-2 rounded" style={{ backgroundColor: "#dbeafe" }}>
+        <h5 className="i3-section-header">
           Custos
         </h5>
-        <div className="row">
+        <div className="row align-items-stretch">
           {CUSTOS.map(({ key, label }) => (
-            <div key={key} className="col-md-4 mb-3">
-              <label className="form-label">{label}:</label>
-              <input
-                type="number"
-                className="form-control"
-                value={dados[key] ?? ""}
-                onChange={(e) => setDados({ ...dados, [key]: e.target.value })}
-              />
+            <div key={key} className="col-md-4 mb-3 d-flex">
+              <div className="i3-labelled-field">
+                <label className="form-label i3-field-label">{label}:</label>
+                <input
+                  type="number"
+                  className="form-control"
+                  value={dados[key] ?? ""}
+                  onChange={(e) => setDados({ ...dados, [key]: e.target.value })}
+                />
+              </div>
             </div>
           ))}
         </div>
       </div>
 
       <div className="custo-bloco border p-3 mb-4 rounded bg-white">
-        <h5 className="text-start mb-3 p-2 rounded" style={{ backgroundColor: "#dbeafe" }}>
+        <h5 className="i3-section-header">
           KPI (Selecione até 5 itens)
         </h5>
         <div className="row">
@@ -174,7 +176,7 @@ export function MemoriaTab() {
       </div>
 
       <div className="custo-bloco border p-3 mb-4 rounded bg-white">
-        <h5 className="text-start mb-3 p-2 rounded" style={{ backgroundColor: "#dbeafe" }}>
+        <h5 className="i3-section-header">
           Benchmark (Selecione apenas 1 item)
         </h5>
         <div className="row">
@@ -200,7 +202,7 @@ export function MemoriaTab() {
       </div>
 
       <div className="custo-bloco border p-3 mb-4 rounded bg-white">
-        <h5 className="text-start mb-3 p-2 rounded" style={{ backgroundColor: "#dbeafe" }}>
+        <h5 className="i3-section-header">
           Horizonte de Planejamento (Selecione apenas 1 item)
         </h5>
         <div className="row">
@@ -226,20 +228,22 @@ export function MemoriaTab() {
       </div>
 
       <div className="custo-bloco border p-3 mb-4 rounded bg-white">
-        <h5 className="text-start mb-3 p-2 rounded" style={{ backgroundColor: "#dbeafe" }}>
+        <h5 className="i3-section-header">
           Bandas
         </h5>
         <h6 className="text-start fw-bold mt-3">Processo</h6>
-        <div className="row">
+        <div className="row align-items-stretch">
           {TEOR_BANDAS_IDS.slice(0, 3).map((id) => (
-            <div key={id} className="col-md-4 mb-3">
-              <label className="form-label">{BANDAS_LABELS[id]}</label>
-              <input
-                type="number"
-                className="form-control input-ajuste"
-                value={dados[id] ?? TEOR_BANDAS_DEFAULTS[id]}
-                onChange={(e) => setDados({ ...dados, [id]: e.target.value })}
-              />
+            <div key={id} className="col-md-4 mb-3 d-flex">
+              <div className="i3-labelled-field">
+                <label className="form-label i3-field-label">{BANDAS_LABELS[id]}</label>
+                <input
+                  type="number"
+                  className="form-control input-ajuste"
+                  value={dados[id] ?? TEOR_BANDAS_DEFAULTS[id]}
+                  onChange={(e) => setDados({ ...dados, [id]: e.target.value })}
+                />
+              </div>
             </div>
           ))}
         </div>
@@ -248,32 +252,36 @@ export function MemoriaTab() {
             <h6 className="text-start fw-bold mt-3 text-capitalize">
               Tecnologia - {grupo === "automacao" ? "Automação" : grupo === "conectividade" ? "Conectividade" : "Inteligência"}
             </h6>
-            <div className="row">
+            <div className="row align-items-stretch">
               {TEOR_BANDAS_IDS.filter((id) => id.startsWith(grupo)).map((id) => (
-                <div key={id} className="col-md-4 mb-3">
-                  <label className="form-label">{BANDAS_LABELS[id]}</label>
-                  <input
-                    type="number"
-                    className="form-control input-ajuste"
-                    value={dados[id] ?? TEOR_BANDAS_DEFAULTS[id]}
-                    onChange={(e) => setDados({ ...dados, [id]: e.target.value })}
-                  />
+                <div key={id} className="col-md-4 mb-3 d-flex">
+                  <div className="i3-labelled-field">
+                    <label className="form-label i3-field-label">{BANDAS_LABELS[id]}</label>
+                    <input
+                      type="number"
+                      className="form-control input-ajuste"
+                      value={dados[id] ?? TEOR_BANDAS_DEFAULTS[id]}
+                      onChange={(e) => setDados({ ...dados, [id]: e.target.value })}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         ))}
         <h6 className="text-start fw-bold mt-3">Organização</h6>
-        <div className="row">
+        <div className="row align-items-stretch">
           {TEOR_BANDAS_IDS.slice(12).map((id) => (
-            <div key={id} className="col-md-3 mb-3">
-              <label className="form-label">{BANDAS_LABELS[id]}</label>
-              <input
-                type="number"
-                className="form-control input-ajuste"
-                value={dados[id] ?? TEOR_BANDAS_DEFAULTS[id]}
-                onChange={(e) => setDados({ ...dados, [id]: e.target.value })}
-              />
+            <div key={id} className="col-md-3 mb-3 d-flex">
+              <div className="i3-labelled-field i3-labelled-field--wide">
+                <label className="form-label i3-field-label">{BANDAS_LABELS[id]}</label>
+                <input
+                  type="number"
+                  className="form-control input-ajuste"
+                  value={dados[id] ?? TEOR_BANDAS_DEFAULTS[id]}
+                  onChange={(e) => setDados({ ...dados, [id]: e.target.value })}
+                />
+              </div>
             </div>
           ))}
         </div>

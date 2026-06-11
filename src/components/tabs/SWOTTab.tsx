@@ -3,6 +3,13 @@
 import { FormEvent, useEffect, useState } from "react";
 import { apiFetch, useApi } from "@/components/layout/AppShell";
 
+const SWOT_CLASSES: Record<string, string> = {
+  forca: "i3-swot-forca",
+  fraqueza: "i3-swot-fraqueza",
+  oportunidade: "i3-swot-oportunidade",
+  ameaca: "i3-swot-ameaca",
+};
+
 export function SWOTTab() {
   const { showModal } = useApi();
   const [form, setForm] = useState({
@@ -38,16 +45,11 @@ export function SWOTTab() {
   const field = (
     key: keyof typeof form,
     label: string,
-    bg: string,
     icon: string,
   ) => (
     <div className="col text-start">
-      <label
-        htmlFor={key}
-        className="form-label px-3 py-2 rounded fw-bold d-inline-block mb-1"
-        style={{ backgroundColor: bg, color: "#000" }}
-      >
-        <i className={`bi ${icon} me-1`} /> {label}
+      <label htmlFor={key} className={`i3-swot-label ${SWOT_CLASSES[key]}`}>
+        <i className={`bi ${icon}`} /> {label}
       </label>
       <textarea
         id={key}
@@ -60,32 +62,39 @@ export function SWOTTab() {
   );
 
   return (
-    <form className="mb-5 mt-3" onSubmit={handleSave}>
+    <form onSubmit={handleSave}>
       <div className="row mb-2">
         <div className="col-2" />
-        <div className="col text-center fw-bold">Fatores Positivos</div>
-        <div className="col text-center fw-bold">Fatores Negativos</div>
-      </div>
-      <div className="row mb-3">
-        <div className="col-2 d-flex align-items-center fw-bold">
-          Fatores Internos
+        <div className="col text-center fw-semibold text-muted fs-7">
+          Fatores Positivos
         </div>
-        {field("forca", "Força", "#d4edda", "bi-arrow-up-right-circle")}
-        {field("fraqueza", "Fraqueza", "#f8d7da", "bi-exclamation-triangle")}
-      </div>
-      <div className="row">
-        <div className="col-2 d-flex align-items-center fw-bold">
-          Fatores Externos
+        <div className="col text-center fw-semibold text-muted fs-7">
+          Fatores Negativos
         </div>
-        {field("oportunidade", "Oportunidade", "#d1ecf1", "bi-lightbulb")}
-        {field("ameaca", "Ameaça", "#fff3cd", "bi-bug")}
       </div>
-      <div className="row text-end px-3 pt-4 pb-3">
-        <div className="col">
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            <i className="bi bi-save" /> Salvar
-          </button>
+      <div className="row mb-3 g-3">
+        <div className="col-2 d-flex align-items-center fw-semibold fs-7">
+          Internos
         </div>
+        {field("forca", "Força", "bi-arrow-up-right-circle")}
+        {field("fraqueza", "Fraqueza", "bi-exclamation-triangle")}
+      </div>
+      <div className="row g-3">
+        <div className="col-2 d-flex align-items-center fw-semibold fs-7">
+          Externos
+        </div>
+        {field("oportunidade", "Oportunidade", "bi-lightbulb")}
+        {field("ameaca", "Ameaça", "bi-shield-exclamation")}
+      </div>
+      <div className="i3-action-bar">
+        <button type="submit" className="btn btn-primary" disabled={saving}>
+          {saving ? (
+            <span className="spinner-border spinner-border-sm me-1" />
+          ) : (
+            <i className="bi bi-save me-1" />
+          )}
+          Salvar
+        </button>
       </div>
     </form>
   );
