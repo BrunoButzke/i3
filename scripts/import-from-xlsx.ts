@@ -5,6 +5,18 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import * as XLSX from "xlsx";
 import { Prisma, PrismaClient } from "../src/generated/prisma/client";
+import {
+  buildQuestaoLookup,
+  resolveQuestaoUuid,
+} from "@/lib/questao-lookup";
+import { calcularResultado } from "@/lib/scoring";
+import {
+  buildSegmentosFromRespostasFinais,
+  importSegmentosFromXlsx,
+  isJunkFiltroRow,
+  isJunkQuestaoRow,
+} from "../src/lib/segmentos-import";
+import { syncRespostasFromFinais } from "../src/lib/services/i3-service";
 
 const RESPOSTA_TIPOS = [
   "Informatização",
@@ -25,6 +37,10 @@ const XLSX_PATH = path.join(
   "Dados",
   "App i3 - Projeto Condor.xlsx",
 );
+
+const SEGMENTOS_XLSX =
+  process.env.SEGMENTOS_XLSX_PATH ??
+  path.join(dataRoot, "Dados", "Segmentos.xlsx");
 
 type Row = (string | number | boolean | Date | null | undefined)[];
 
@@ -138,6 +154,7 @@ async function importFiltros(prisma: PrismaClient, rows: Row[]) {
   const data: Prisma.FiltroCreateManyInput[] = [];
   for (const row of rows) {
     if (isHeaderRow(row, "Estrutura")) continue;
+    if (isJunkFiltroRow(row)) continue;
     const processo = str(row[5]);
     const respostaEscolhida = str(row[4]);
     if (!processo && !respostaEscolhida && !str(row[0])) continue;
@@ -158,6 +175,7 @@ async function importQuestoes(prisma: PrismaClient, rows: Row[]) {
   let count = 0;
   for (const row of rows) {
     if (isHeaderRow(row, "ID")) continue;
+    if (isJunkQuestaoRow(row)) continue;
     const codigo = str(row[0]);
     if (!codigo) continue;
 
@@ -183,28 +201,16 @@ async function importQuestoes(prisma: PrismaClient, rows: Row[]) {
   console.log(`  ✓ Questões: ${count}`);
 }
 
-function buildQuestaoLookup(
-  questoes: { id: string; codigo: string; processo: string }[],
+function buildLookupFromDb(
+  questoes: { id: string; codigo: string; processo: string; estrutura: string; principio: string; capacidade: string }[],
 ) {
-  const byCodigoProcesso = new Map<string, string>();
-  for (const q of questoes) {
-    byCodigoProcesso.set(`${q.codigo}|||${q.processo}`, q.id);
-  }
-  return byCodigoProcesso;
-}
-
-function resolveQuestaoUuid(
-  lookup: Map<string, string>,
-  codigo: string,
-  processo: string,
-): string | null {
-  return lookup.get(`${codigo}|||${processo}`) ?? null;
+  return buildQuestaoLookup(questoes);
 }
 
 async function importRespostas(
   prisma: PrismaClient,
   rows: Row[],
-  lookup: Map<string, string>,
+  lookup: ReturnType<typeof buildQuestaoLookup>,
 ) {
   const data: Prisma.RespostaCreateManyInput[] = [];
   let skipped = 0;
@@ -216,7 +222,13 @@ async function importRespostas(
     const processo = str(row[4]);
     if (!empresaId || !codigo) continue;
 
-    const questaoUuid = resolveQuestaoUuid(lookup, codigo, processo);
+    const questaoUuid = resolveQuestaoUuid(lookup, {
+      codigo,
+      processo,
+      estrutura: str(row[1]),
+      principio: str(row[2]),
+      capacidade: str(row[3]),
+    });
     if (!questaoUuid) {
       skipped++;
       continue;
@@ -243,7 +255,7 @@ async function importRespostas(
 async function importRespostasFinais(
   prisma: PrismaClient,
   rows: Row[],
-  lookup: Map<string, string>,
+  lookup: ReturnType<typeof buildQuestaoLookup>,
 ) {
   const data: Prisma.RespostaFinalCreateManyInput[] = [];
 
@@ -256,7 +268,13 @@ async function importRespostasFinais(
     const processo = str(row[4]);
     if (!empresaId || !codigo) continue;
 
-    const questaoUuid = resolveQuestaoUuid(lookup, codigo, processo);
+    const questaoUuid = resolveQuestaoUuid(lookup, {
+      codigo,
+      processo,
+      estrutura: str(row[1]),
+      principio: str(row[2]),
+      capacidade: str(row[3]),
+    });
 
     data.push({
       empresaId,
@@ -462,9 +480,16 @@ async function main() {
     await importQuestoes(prisma, getRows(workbook, "Questões"));
 
     const questoes = await prisma.questao.findMany({
-      select: { id: true, codigo: true, processo: true },
+      select: {
+        id: true,
+        codigo: true,
+        processo: true,
+        estrutura: true,
+        principio: true,
+        capacidade: true,
+      },
     });
-    const lookup = buildQuestaoLookup(questoes);
+    const lookup = buildLookupFromDb(questoes);
 
     const codigosUnicos = new Set(questoes.map((q) => q.codigo)).size;
     console.log(
@@ -485,11 +510,23 @@ async function main() {
     await importMemoriaSIRI(prisma, getRows(workbook, "Memória SIRI"));
     await importMacroDimensoes(prisma, getRows(workbook, "Macro Dimensões"));
 
+    const sync = await syncRespostasFromFinais();
+    console.log(`  ✓ Respostas sincronizadas de Finais: ${sync.synced}`);
+
+    if (fs.existsSync(SEGMENTOS_XLSX)) {
+      const seg = await importSegmentosFromXlsx(prisma, SEGMENTOS_XLSX);
+      console.log(`  ✓ Segmentos (xlsx externo): ${seg.imported}`);
+    } else {
+      const seg = await buildSegmentosFromRespostasFinais(prisma);
+      console.log(`  ✓ Segmentos (gerados de RespostaFinal): ${seg.built}`);
+    }
+
     const counts = await Promise.all([
       prisma.empresa.count(),
       prisma.questao.count(),
       prisma.resposta.count(),
       prisma.respostaFinal.count(),
+      prisma.segmento.count(),
     ]);
 
     console.log("\n>> Importação concluída!");
@@ -497,6 +534,7 @@ async function main() {
     console.log(`   Questões: ${counts[1]}`);
     console.log(`   Respostas: ${counts[2]}`);
     console.log(`   Respostas Finais: ${counts[3]}`);
+    console.log(`   Segmentos: ${counts[4]}`);
   } finally {
     await prisma.$disconnect();
     await pool.end();

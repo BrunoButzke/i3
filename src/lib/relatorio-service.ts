@@ -1,5 +1,6 @@
 import { ORDEM_RESPOSTAS, RESPOSTA_PESOS } from "@/lib/scoring";
 import { prisma } from "@/lib/prisma";
+import { getRespostasEfetivas } from "@/lib/services/i3-service";
 
 const PROCESSOS_IGNORAR = [
   "Estratégia e Governança Digital",
@@ -11,10 +12,7 @@ const PROCESSOS_IGNORAR = [
 const INDICADORES = [...ORDEM_RESPOSTAS];
 
 export async function calcularTotalPorRespostaEmpresa(empresaId: number) {
-  const respostas = await prisma.resposta.findMany({
-    where: { empresaId },
-    select: { resposta: true },
-  });
+  const respostas = await getRespostasEfetivas(empresaId);
   const totais: Record<string, number> = {};
   for (const r of respostas) {
     if (!r.resposta) continue;
@@ -52,9 +50,7 @@ export function calcularPercentuaisMaturidade(
 }
 
 export async function calcularMediasPorEstrutura(empresaId: number) {
-  const respostas = await prisma.resposta.findMany({
-    where: { empresaId },
-  });
+  const respostas = await getRespostasEfetivas(empresaId);
   const agrupado: Record<string, Record<string, number>> = {};
 
   for (const r of respostas) {
@@ -86,10 +82,7 @@ export async function calcularMediasPorEstrutura(empresaId: number) {
 }
 
 export async function getResultadoPorDimensao(empresaId: number) {
-  const respostas = await prisma.resposta.findMany({
-    where: { empresaId },
-    select: { processo: true, resultado: true },
-  });
+  const respostas = await getRespostasEfetivas(empresaId);
   const agrupado: Record<string, { soma: number; qtd: number }> = {};
   for (const r of respostas) {
     if (!r.processo) continue;
@@ -104,10 +97,16 @@ export async function getResultadoPorDimensao(empresaId: number) {
 }
 
 export async function getResumoCapacidade(empresaId: number) {
-  const respostas = await prisma.resposta.findMany({
-    where: { empresaId },
-    include: { questao: true },
+  const respostasRaw = await getRespostasEfetivas(empresaId);
+  const questaoIds = [...new Set(respostasRaw.map((r) => r.questaoId))];
+  const questoes = await prisma.questao.findMany({
+    where: { id: { in: questaoIds } },
   });
+  const questaoById = new Map(questoes.map((q) => [q.id, q]));
+  const respostas = respostasRaw.map((r) => ({
+    ...r,
+    questao: questaoById.get(r.questaoId) ?? null,
+  }));
 
   const registros: {
     estrutura: string;

@@ -1,5 +1,9 @@
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import {
+  buildQuestaoLookup,
+  resolveQuestaoUuid,
+} from "@/lib/questao-lookup";
 import { calcularResultado } from "@/lib/scoring";
 
 export type RespostaRow = [
@@ -71,25 +75,173 @@ export async function getQuestionsByCodigo(codigo: string) {
   });
 }
 
+export type RespostaEfetiva = {
+  empresaId: number;
+  estrutura: string;
+  principio: string;
+  capacidade: string;
+  processo: string;
+  questaoId: string;
+  resposta: string;
+  resultado: number | null;
+};
+
+/** Mescla RespostaFinal (histórico) com Resposta (rascunho atual). */
+export async function getRespostasEfetivas(
+  empresaId: number,
+  processo?: string,
+): Promise<RespostaEfetiva[]> {
+  const processTrim = processo?.trim();
+  const processFilter = processTrim ? { processo: processTrim } : {};
+
+  const [respostas, finais, questoes] = await Promise.all([
+    prisma.resposta.findMany({
+      where: { empresaId, ...processFilter },
+    }),
+    prisma.respostaFinal.findMany({
+      where: { empresaId, ...processFilter },
+    }),
+    prisma.questao.findMany({
+      where: processTrim ? { processo: processTrim } : undefined,
+      select: {
+        id: true,
+        codigo: true,
+        estrutura: true,
+        principio: true,
+        capacidade: true,
+        processo: true,
+      },
+    }),
+  ]);
+
+  const lookup = buildQuestaoLookup(questoes);
+  const byQuestaoId = new Map<string, RespostaEfetiva>();
+
+  for (const rf of finais) {
+    const questaoId = resolveQuestaoUuid(lookup, {
+      codigo: rf.codigo,
+      estrutura: rf.estrutura,
+      principio: rf.principio,
+      capacidade: rf.capacidade,
+      processo: rf.processo,
+      questaoId: rf.questaoId,
+    });
+    if (!questaoId) continue;
+    byQuestaoId.set(questaoId, {
+      empresaId: rf.empresaId,
+      estrutura: rf.estrutura,
+      principio: rf.principio,
+      capacidade: rf.capacidade,
+      processo: rf.processo,
+      questaoId,
+      resposta: rf.resposta,
+      resultado: rf.resultado,
+    });
+  }
+
+  for (const r of respostas) {
+    byQuestaoId.set(r.questaoId, {
+      empresaId: r.empresaId,
+      estrutura: r.estrutura,
+      principio: r.principio,
+      capacidade: r.capacidade,
+      processo: r.processo,
+      questaoId: r.questaoId,
+      resposta: r.resposta,
+      resultado: r.resultado,
+    });
+  }
+
+  return [...byQuestaoId.values()];
+}
+
 export async function getAnswers(companyId: number, process: string) {
-  const answers = await prisma.resposta.findMany({
-    where: { empresaId: companyId, processo: process.trim() },
-  });
+  const answers = (await getRespostasEfetivas(companyId, process)).map((a) => [
+    a.empresaId,
+    a.estrutura,
+    a.principio,
+    a.capacidade,
+    a.processo,
+    a.questaoId,
+    a.resposta,
+    a.resultado,
+  ]);
 
   return {
     company: companyId,
     process,
-    answers: answers.map((a) => [
-      a.empresaId,
-      a.estrutura,
-      a.principio,
-      a.capacidade,
-      a.processo,
-      a.questaoId,
-      a.resposta,
-      a.resultado,
-    ]),
+    answers,
   };
+}
+
+/** Popula Resposta a partir de RespostaFinal quando a empresa não tem rascunho salvo. */
+export async function syncRespostasFromFinais(empresaId?: number) {
+  const whereEmpresa = empresaId ? { empresaId } : {};
+  const finais = await prisma.respostaFinal.findMany({ where: whereEmpresa });
+  if (finais.length === 0) return { synced: 0 };
+
+  const questoes = await prisma.questao.findMany({
+    select: {
+      id: true,
+      codigo: true,
+      estrutura: true,
+      principio: true,
+      capacidade: true,
+      processo: true,
+    },
+  });
+  const lookup = buildQuestaoLookup(questoes);
+  const questaoById = new Map(questoes.map((q) => [q.id, q]));
+
+  const empresas = [
+    ...new Set(finais.map((f) => f.empresaId)),
+  ];
+  let synced = 0;
+
+  for (const empId of empresas) {
+    const existingIds = new Set(
+      (
+        await prisma.resposta.findMany({
+          where: { empresaId: empId },
+          select: { questaoId: true },
+        })
+      ).map((r) => r.questaoId),
+    );
+
+    const rows = finais
+      .filter((f) => f.empresaId === empId)
+      .map((rf) => {
+        const questaoId = resolveQuestaoUuid(lookup, {
+          codigo: rf.codigo,
+          estrutura: rf.estrutura,
+          principio: rf.principio,
+          capacidade: rf.capacidade,
+          processo: rf.processo,
+          questaoId: rf.questaoId,
+        });
+        if (!questaoId || existingIds.has(questaoId)) return null;
+        const q = questaoById.get(questaoId);
+        return {
+          empresaId: empId,
+          questaoId,
+          estrutura: q?.estrutura ?? rf.estrutura,
+          principio: q?.principio ?? rf.principio,
+          capacidade: q?.capacidade ?? rf.capacidade,
+          processo: q?.processo ?? rf.processo,
+          resposta: rf.resposta,
+          resultado:
+            rf.resultado ?? calcularResultado(rf.resposta),
+        };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
+
+    if (rows.length > 0) {
+      await prisma.resposta.createMany({ data: rows });
+      synced += rows.length;
+    }
+  }
+
+  return { synced };
 }
 
 export async function saveAnswers(rows: RespostaRow[]) {

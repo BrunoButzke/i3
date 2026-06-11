@@ -12,6 +12,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "db:import": "tsx scripts/import-from-xlsx.ts",
+    "db:maintenance": "tsx scripts/db-maintenance.ts",
     "db:seed": "tsx scripts/seed.ts",
     "docker:up": "docker compose up --build",
     "docker:up:db": "docker compose up db -d",
