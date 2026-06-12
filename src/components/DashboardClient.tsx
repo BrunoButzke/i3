@@ -79,7 +79,7 @@ export function DashboardClient() {
           {enviado && (
             <span className="i3-badge-enviado">
               <i className="bi bi-check-circle-fill" />
-              Diagnóstico enviado — edição bloqueada
+              Diagnóstico enviado
             </span>
           )}
         </div>
@@ -106,7 +106,6 @@ export function DashboardClient() {
                 empresaId={me.id}
                 processos={me.processos}
                 respostaTipos={me.respostas}
-                enviado={enviado}
                 readonly={false}
               />
             )}

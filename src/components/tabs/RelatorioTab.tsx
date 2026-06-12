@@ -338,7 +338,9 @@ export function RelatorioTab() {
                 <div key={titulo} className="col-md-6">
                   <div className="border rounded p-3 h-100 bg-light">
                     <h6 className={`fw-bold ${cor}`}>{titulo}</h6>
-                    <p>{texto || "Não informado"}</p>
+                    <p className="mb-0" style={{ whiteSpace: "pre-line" }}>
+                      {texto || "Não informado"}
+                    </p>
                   </div>
                 </div>
               ))}

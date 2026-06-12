@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch, useApi } from "@/components/layout/AppShell";
 
 type Question = {
@@ -18,7 +18,6 @@ type Props = {
   empresaId: number;
   processos: string[];
   respostaTipos: string[];
-  enviado: boolean;
   readonly: boolean;
 };
 
@@ -30,7 +29,6 @@ export function DiagnosticoTab({
   empresaId,
   processos,
   respostaTipos,
-  enviado,
   readonly,
 }: Props) {
   const { showModal, showConfirm } = useApi();
@@ -42,7 +40,80 @@ export function DiagnosticoTab({
     Record<string, Record<string, string>>
   >({});
   const [saving, setSaving] = useState(false);
-  const disabled = readonly || enviado;
+  const disabled = readonly;
+  const openProcessHeaderRef = useRef<HTMLButtonElement>(null);
+  const questionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  const getScrollAnchorY = useCallback(() => {
+    const header = document.querySelector(".i3-header");
+    return (header?.getBoundingClientRect().height ?? 72) + 24;
+  }, []);
+
+  const scrollToElementWithAnchor = useCallback(
+    (element: HTMLElement) => {
+      const top =
+        element.getBoundingClientRect().top + window.scrollY - getScrollAnchorY();
+      window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    },
+    [getScrollAnchorY],
+  );
+
+  const scrollToOpenProcess = useCallback(() => {
+    const el = openProcessHeaderRef.current;
+    if (el) scrollToElementWithAnchor(el);
+  }, [scrollToElementWithAnchor]);
+
+  const navigateQuestion = useCallback(
+    (direction: -1 | 1) => {
+      if (!openProcess) return;
+
+      const questions = questionsByProcess[openProcess] ?? [];
+      if (questions.length === 0) return;
+
+      const answered = selections[openProcess] ?? {};
+      const anchorY = getScrollAnchorY();
+      const cards = questions.flatMap((q, idx) => {
+        const el = questionRefs.current.get(q.id);
+        if (!el) return [];
+        const rect = el.getBoundingClientRect();
+        return [{ idx, el, top: rect.top, bottom: rect.bottom }];
+      });
+
+      if (cards.length === 0) return;
+
+      let currentIdx = 0;
+      for (const card of cards) {
+        if (anchorY >= card.top - 8 && anchorY < card.bottom) {
+          currentIdx = card.idx;
+          break;
+        }
+        if (anchorY >= card.top) {
+          currentIdx = card.idx;
+        }
+      }
+
+      let targetIdx = currentIdx + direction;
+      while (targetIdx >= 0 && targetIdx < questions.length) {
+        if (!answered[questions[targetIdx].id]) {
+          scrollToElementWithAnchor(cards[targetIdx].el);
+          return;
+        }
+        targetIdx += direction;
+      }
+    },
+    [
+      openProcess,
+      questionsByProcess,
+      selections,
+      getScrollAnchorY,
+      scrollToElementWithAnchor,
+    ],
+  );
+
+  const closePanel = useCallback(() => {
+    questionRefs.current.clear();
+    setOpenProcess(null);
+  }, []);
 
   const loadProcess = useCallback(
     async (processo: string) => {
@@ -143,7 +214,53 @@ export function DiagnosticoTab({
   }
 
   return (
-    <div>
+    <div
+      className={`i3-diagnostico-root${openProcess ? " has-panel-open" : ""}`}
+    >
+      {openProcess && (
+        <nav
+          className="i3-diagnostico-float-nav"
+          aria-label="Navegação do questionário"
+        >
+          <button
+            type="button"
+            className="i3-diagnostico-float-btn"
+            title="Ir ao topo da lista"
+            aria-label="Ir ao topo da lista"
+            onClick={scrollToOpenProcess}
+          >
+            <i className="bi bi-arrow-up" />
+          </button>
+          <button
+            type="button"
+            className="i3-diagnostico-float-btn"
+            title="Questão anterior não respondida"
+            aria-label="Questão anterior não respondida"
+            onClick={() => navigateQuestion(-1)}
+          >
+            <i className="bi bi-chevron-up" />
+          </button>
+          <button
+            type="button"
+            className="i3-diagnostico-float-btn"
+            title="Próxima questão não respondida"
+            aria-label="Próxima questão não respondida"
+            onClick={() => navigateQuestion(1)}
+          >
+            <i className="bi bi-chevron-down" />
+          </button>
+          <button
+            type="button"
+            className="i3-diagnostico-float-btn i3-diagnostico-float-btn-close"
+            title="Fechar lista"
+            aria-label="Fechar lista"
+            onClick={closePanel}
+          >
+            <i className="bi bi-arrows-collapse" />
+          </button>
+        </nav>
+      )}
+
       {processos.map((processo) => {
         const slug = slugProcesso(processo);
         const pct = progress(processo);
@@ -154,6 +271,7 @@ export function DiagnosticoTab({
           <div key={processo} className="i3-process-item">
             <button
               type="button"
+              ref={isOpen ? openProcessHeaderRef : undefined}
               className={`i3-process-btn ${isOpen ? "open" : ""}`}
               onClick={() => setOpenProcess(isOpen ? null : processo)}
             >
@@ -181,7 +299,14 @@ export function DiagnosticoTab({
                   </p>
                 )}
                 {questions.map((q, idx) => (
-                  <div key={q.id} className="i3-question-card">
+                  <div
+                    key={q.id}
+                    ref={(el) => {
+                      if (el) questionRefs.current.set(q.id, el);
+                      else questionRefs.current.delete(q.id);
+                    }}
+                    className="i3-question-card"
+                  >
                     <div className="i3-question-label">Questão {idx + 1}</div>
                     <div className="i3-question-text">{q.enunciado}</div>
                     <div>
@@ -191,36 +316,35 @@ export function DiagnosticoTab({
                         const checked =
                           selections[processo]?.[q.id] === tipo;
                         return (
-                          <div key={tipo} className="i3-radio-option">
-                            <div className="form-check mb-0">
-                              <input
-                                type="radio"
-                                className="form-check-input"
-                                name={`${slug}-${q.id}`}
-                                id={`${slug}-${q.id}-${tipo}`}
-                                checked={checked}
-                                disabled={disabled}
-                                onChange={() =>
-                                  setSelections((prev) => ({
-                                    ...prev,
-                                    [processo]: {
-                                      ...(prev[processo] ?? {}),
-                                      [q.id]: tipo,
-                                    },
-                                  }))
-                                }
-                              />
-                              <label
-                                className="form-check-label"
-                                htmlFor={`${slug}-${q.id}-${tipo}`}
-                              >
-                                <strong className="d-block fs-7 text-primary">
-                                  {tipo}
-                                </strong>
-                                {texto}
-                              </label>
-                            </div>
-                          </div>
+                          <label
+                            key={tipo}
+                            className="i3-radio-option form-check mb-0"
+                            htmlFor={`${slug}-${q.id}-${tipo}`}
+                          >
+                            <input
+                              type="radio"
+                              className="form-check-input"
+                              name={`${slug}-${q.id}`}
+                              id={`${slug}-${q.id}-${tipo}`}
+                              checked={checked}
+                              disabled={disabled}
+                              onChange={() =>
+                                setSelections((prev) => ({
+                                  ...prev,
+                                  [processo]: {
+                                    ...(prev[processo] ?? {}),
+                                    [q.id]: tipo,
+                                  },
+                                }))
+                              }
+                            />
+                            <span className="form-check-label i3-radio-option-text">
+                              <strong className="d-block fs-7 text-primary">
+                                {tipo}
+                              </strong>
+                              {texto}
+                            </span>
+                          </label>
                         );
                       })}
                     </div>
@@ -232,7 +356,9 @@ export function DiagnosticoTab({
         );
       })}
 
-      <div className="i3-action-bar">
+      <div
+        className={`i3-action-bar${openProcess ? " i3-action-bar-floating" : ""}`}
+      >
         <button
           type="button"
           className="btn btn-outline-primary btn-fixed-size"
@@ -246,7 +372,7 @@ export function DiagnosticoTab({
           type="button"
           className="btn btn-primary btn-fixed-size"
           disabled={disabled || saving}
-          title="Envia as respostas, NÃO permitirá mais ajustes."
+          title="Marca o diagnóstico como enviado e recalcula o resultado."
           onClick={() =>
             showConfirm(
               "Você tem certeza que deseja enviar as respostas?",

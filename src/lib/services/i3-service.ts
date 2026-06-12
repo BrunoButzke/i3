@@ -2,6 +2,11 @@ import { Prisma } from "@/generated/prisma/client";
 import { limitAcaoText } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import {
+  parseSwotRecord,
+  serializeSwotRecord,
+  type SwotItems,
+} from "@/lib/swot-utils";
+import {
   buildQuestaoLookup,
   resolveQuestaoUuid,
 } from "@/lib/questao-lookup";
@@ -274,27 +279,22 @@ export async function sendAnswers(rows: RespostaRow[]) {
   });
 }
 
-export async function getSWOT(empresaId: number) {
-  return prisma.sWOT.findFirst({ where: { empresaId } });
+export async function getSWOT(empresaId: number): Promise<SwotItems | null> {
+  const row = await prisma.sWOT.findFirst({ where: { empresaId } });
+  if (!row) return null;
+  return parseSwotRecord(row);
 }
 
-export async function saveSWOT(
-  empresaId: number,
-  data: {
-    forca: string;
-    fraqueza: string;
-    oportunidade: string;
-    ameaca: string;
-  },
-) {
+export async function saveSWOT(empresaId: number, data: SwotItems) {
+  const serialized = serializeSwotRecord(data);
   const existing = await prisma.sWOT.findFirst({ where: { empresaId } });
   if (existing) {
     return prisma.sWOT.update({
       where: { id: existing.id },
-      data,
+      data: serialized,
     });
   }
-  return prisma.sWOT.create({ data: { empresaId, ...data } });
+  return prisma.sWOT.create({ data: { empresaId, ...serialized } });
 }
 
 export async function getOKRs(empresaId: number) {

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { AppFooter, AppHeader, apiFetch } from "@/components/layout/AppShell";
+import { Logo } from "@/components/layout/Logo";
 import { useModal } from "@/components/ModalProvider";
 
 export default function LoginPage() {
@@ -45,11 +46,7 @@ export default function LoginPage() {
       <AppHeader />
       <main className="i3-login-main">
         <div className="i3-login-card">
-          <img
-            className="i3-login-card-logo"
-            src="https://lh3.googleusercontent.com/d/1RAZXpjSac0tirGTy07tAkIMhnef2pI7Q"
-            alt="i3"
-          />
+          <Logo className="i3-login-card-logo" />
           <h2>Bem-vindo</h2>
           <p className="i3-login-desc">
             Acesse sua conta para continuar o diagnóstico

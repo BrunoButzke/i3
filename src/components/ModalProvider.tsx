@@ -97,7 +97,9 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
               <h5 className="i3-modal-title">{confirmOpts.title}</h5>
             </div>
             <div className="i3-modal-body">
-              <p className="mb-0">{confirm.message}</p>
+              <p className="mb-0" style={{ whiteSpace: "pre-line" }}>
+                {confirm.message}
+              </p>
               {confirmOpts.warning && (
                 <div
                   className="p-3 rounded mt-3"

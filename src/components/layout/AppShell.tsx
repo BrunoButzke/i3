@@ -1,16 +1,13 @@
 "use client";
 
 import { useModal } from "@/components/ModalProvider";
+import { Logo } from "@/components/layout/Logo";
 
 export function AppHeader() {
   return (
     <header className="i3-header">
       <div className="i3-header-inner">
-        <img
-          className="i3-header-logo"
-          src="https://lh3.googleusercontent.com/d/1RAZXpjSac0tirGTy07tAkIMhnef2pI7Q"
-          alt="i3"
-        />
+        <Logo className="i3-header-logo" />
         <div className="i3-header-brand">
           <h1 className="i3-header-title">Índice da Indústria Inteligente</h1>
           <p className="i3-header-subtitle">

@@ -23,6 +23,8 @@ export const PROCESSOS_PADRAO = [
 
 export const SESSION_COOKIE = "i3_session";
 
+export const LOGO_URL = "/logo/logo.png";
+
 /** Limite de caracteres para o texto da ação (Priorização / Plano / Acompanhamento). */
 export const ACAO_MAX_LENGTH = 80;
 

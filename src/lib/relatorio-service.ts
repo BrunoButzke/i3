@@ -1,5 +1,6 @@
 import { ORDEM_RESPOSTAS, RESPOSTA_PESOS } from "@/lib/scoring";
 import { prisma } from "@/lib/prisma";
+import { formatSwotItemsForDisplay } from "@/lib/swot-utils";
 import { getRespostasEfetivas } from "@/lib/services/i3-service";
 
 const PROCESSOS_IGNORAR = [
@@ -270,7 +271,14 @@ export async function getRelatorioCompleto(empresaId: number) {
       titulo: ROADMAP_TITULOS[i] ?? `Macro-Dimensão ${i + 1}`,
       texto,
     })),
-    swot,
+    swot: swot
+      ? {
+          forca: formatSwotItemsForDisplay(swot.forca),
+          fraqueza: formatSwotItemsForDisplay(swot.fraqueza),
+          oportunidade: formatSwotItemsForDisplay(swot.oportunidade),
+          ameaca: formatSwotItemsForDisplay(swot.ameaca),
+        }
+      : null,
     okrs,
     metas,
     planos: planos.filter((p) => p.oque),
