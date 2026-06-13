@@ -71,11 +71,23 @@ export async function apiFetch<T>(
       ...options?.headers,
     },
   });
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error ?? "Erro na requisição");
+  const text = await res.text();
+  let data: { error?: string } | null = null;
+  if (text) {
+    try {
+      data = JSON.parse(text) as { error?: string };
+    } catch {
+      throw new Error(
+        res.ok
+          ? "Resposta inválida do servidor"
+          : `Erro ${res.status}: ${text.slice(0, 200) || res.statusText}`,
+      );
+    }
   }
-  return data as T;
+  if (!res.ok) {
+    throw new Error(data?.error ?? `Erro ${res.status}: ${res.statusText}`);
+  }
+  return (data ?? {}) as T;
 }
 
 export function useApi() {

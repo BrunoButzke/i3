@@ -3,9 +3,14 @@
 import { useEffect, useState } from "react";
 import { apiFetch, useApi } from "@/components/layout/AppShell";
 import { SaveRemoveButtons, TabBloco } from "@/components/tabs/shared";
+import {
+  collectKeyResultsFromOkrs,
+  type OkrData,
+} from "@/lib/okr-utils";
 
 type Meta = {
   objetivo: string;
+  keyResultId: string;
   especifica: string;
   mensuravel: string;
   alcancavel: string;
@@ -15,6 +20,7 @@ type Meta = {
 
 const emptyMeta = (): Meta => ({
   objetivo: "",
+  keyResultId: "",
   especifica: "",
   mensuravel: "",
   alcancavel: "",
@@ -25,23 +31,49 @@ const emptyMeta = (): Meta => ({
 export function MetasTab() {
   const { showModal } = useApi();
   const [metas, setMetas] = useState<Meta[]>([]);
+  const [krOptions, setKrOptions] = useState<
+    { id: string; label: string }[]
+  >([]);
   const [savingIndex, setSavingIndex] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiFetch<Meta[]>("/api/metas").then((data) => {
-      setMetas(
-        data.length > 0
-          ? data.map((m) => ({
-              objetivo: m.objetivo,
-              especifica: m.especifica ?? "",
-              mensuravel: m.mensuravel ?? "",
-              alcancavel: m.alcancavel ?? "",
-              relevante: m.relevante ?? "",
-              temporal: m.temporal ?? "",
-            }))
-          : [emptyMeta()],
-      );
-    });
+    Promise.all([
+      apiFetch<
+        {
+          objetivo: string;
+          keyResultId?: string | null;
+          especifica?: string | null;
+          mensuravel?: string | null;
+          alcancavel?: string | null;
+          relevante?: string | null;
+          temporal?: string | null;
+        }[]
+      >("/api/metas"),
+      apiFetch<OkrData[]>("/api/okr"),
+    ])
+      .then(([metasData, okrsData]) => {
+        setKrOptions(
+          collectKeyResultsFromOkrs(okrsData).map(({ kr, label }) => ({
+            id: kr.id,
+            label,
+          })),
+        );
+        setMetas(
+          metasData.length > 0
+            ? metasData.map((m) => ({
+                objetivo: m.objetivo,
+                keyResultId: m.keyResultId ?? "",
+                especifica: m.especifica ?? "",
+                mensuravel: m.mensuravel ?? "",
+                alcancavel: m.alcancavel ?? "",
+                relevante: m.relevante ?? "",
+                temporal: m.temporal ?? "",
+              }))
+            : [emptyMeta()],
+        );
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   function update(index: number, field: keyof Meta, value: string) {
@@ -76,6 +108,14 @@ export function MetasTab() {
     setMetas((prev) => prev.filter((_, i) => i !== index));
   }
 
+  if (loading) {
+    return (
+      <div className="text-center py-5">
+        <div className="i3-loading-spinner mx-auto" role="status" />
+      </div>
+    );
+  }
+
   return (
     <form className="mb-5" onSubmit={(e) => e.preventDefault()}>
       {metas.map((meta, index) => (
@@ -91,6 +131,34 @@ export function MetasTab() {
               onChange={(e) => update(index, "objetivo", e.target.value)}
             />
           </div>
+
+          <div className="mb-3">
+            <label
+              className="form-label text-start w-100"
+              htmlFor={`meta-kr-${index}`}
+            >
+              KR associado:
+            </label>
+            <select
+              id={`meta-kr-${index}`}
+              className="form-select"
+              value={meta.keyResultId}
+              onChange={(e) => update(index, "keyResultId", e.target.value)}
+            >
+              <option value="">Selecione um KR (opcional)</option>
+              {krOptions.map((kr) => (
+                <option key={kr.id} value={kr.id}>
+                  {kr.label}
+                </option>
+              ))}
+            </select>
+            {krOptions.length === 0 && (
+              <p className="text-muted fs-8 mt-1 mb-0">
+                Cadastre KRs na aba OKR antes de associar uma meta.
+              </p>
+            )}
+          </div>
+
           <div className="row">
             <div className="col-md-6 mb-3">
               <label className="form-label text-start w-100">Específica:</label>

@@ -339,9 +339,6 @@ export function DiagnosticoTab({
                               }
                             />
                             <span className="form-check-label i3-radio-option-text">
-                              <strong className="d-block fs-7 text-primary">
-                                {tipo}
-                              </strong>
                               {texto}
                             </span>
                           </label>

@@ -1,15 +1,21 @@
 import { Prisma } from "@/generated/prisma/client";
-import { limitAcaoText } from "@/lib/constants";
+import { limitAcaoText, normalizarAvaliacaoPlano } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
+import {
+  parseKeyResults,
+  sanitizeKeyResults,
+  type KeyResult,
+  type OkrData,
+} from "@/lib/okr-utils";
+import {
+  buildQuestaoLookup,
+  resolveQuestaoUuid,
+} from "@/lib/questao-lookup";
 import {
   parseSwotRecord,
   serializeSwotRecord,
   type SwotItems,
 } from "@/lib/swot-utils";
-import {
-  buildQuestaoLookup,
-  resolveQuestaoUuid,
-} from "@/lib/questao-lookup";
 import { calcularResultado } from "@/lib/scoring";
 
 export type RespostaRow = [
@@ -297,46 +303,65 @@ export async function saveSWOT(empresaId: number, data: SwotItems) {
   return prisma.sWOT.create({ data: { empresaId, ...serialized } });
 }
 
-export async function getOKRs(empresaId: number) {
-  return prisma.oKR.findMany({ where: { empresaId } });
+function rowToOkrData(row: {
+  id: number;
+  objetivo: string;
+  keyResults: unknown;
+  okr1: string | null;
+  okr2: string | null;
+  okr3: string | null;
+}): OkrData {
+  return {
+    id: row.id,
+    objetivo: row.objetivo,
+    keyResults: parseKeyResults(row.keyResults, row),
+  };
 }
 
-export async function saveOKR(
-  empresaId: number,
-  objetivo: string,
-  okr1: string,
-  okr2: string,
-  okr3: string,
-) {
-  const existing = await prisma.oKR.findFirst({
-    where: { empresaId, objetivo },
+export async function getOKRs(empresaId: number): Promise<OkrData[]> {
+  const rows = await prisma.oKR.findMany({
+    where: { empresaId },
+    orderBy: { id: "asc" },
   });
-  if (existing) {
-    return prisma.oKR.update({
-      where: { id: existing.id },
-      data: { okr1, okr2, okr3 },
+  return rows.map(rowToOkrData);
+}
+
+/** @deprecated Use getOKRs */
+export async function getOKR(empresaId: number): Promise<OkrData | null> {
+  const okrs = await getOKRs(empresaId);
+  return okrs[0] ?? null;
+}
+
+export async function saveOKR(empresaId: number, data: OkrData) {
+  const objetivo = data.objetivo.trim();
+  const keyResults = sanitizeKeyResults(data.keyResults);
+  const payload = {
+    objetivo,
+    keyResults: keyResults as unknown as Prisma.InputJsonValue,
+    okr1: null,
+    okr2: null,
+    okr3: null,
+  };
+
+  if (data.id) {
+    const existing = await prisma.oKR.findFirst({
+      where: { id: data.id, empresaId },
     });
+    if (existing) {
+      return prisma.oKR.update({
+        where: { id: data.id },
+        data: payload as Prisma.OKRUpdateInput,
+      });
+    }
   }
+
   return prisma.oKR.create({
-    data: { empresaId, objetivo, okr1, okr2, okr3 },
+    data: { empresaId, ...payload } as Prisma.OKRUncheckedCreateInput,
   });
 }
 
-export async function removeOKR(
-  empresaId: number,
-  objetivo: string,
-  okr1: string,
-  okr2: string,
-  okr3: string,
-) {
-  const rows = await prisma.oKR.findMany({ where: { empresaId, objetivo } });
-  const match = rows.find(
-    (r) =>
-      (r.okr1 ?? "") === okr1 &&
-      (r.okr2 ?? "") === okr2 &&
-      (r.okr3 ?? "") === okr3,
-  );
-  if (match) await prisma.oKR.delete({ where: { id: match.id } });
+export async function removeOKR(empresaId: number, id: number) {
+  await prisma.oKR.deleteMany({ where: { id, empresaId } });
 }
 
 export async function getMetas(empresaId: number) {
@@ -347,6 +372,7 @@ export async function saveMeta(
   empresaId: number,
   data: {
     objetivo: string;
+    keyResultId?: string | null;
     especifica: string;
     mensuravel: string;
     alcancavel: string;
@@ -354,6 +380,7 @@ export async function saveMeta(
     temporal: string;
   },
 ) {
+  const keyResultId = data.keyResultId?.trim() || null;
   const existing = await prisma.metaSMART.findFirst({
     where: { empresaId, objetivo: data.objetivo },
   });
@@ -361,6 +388,7 @@ export async function saveMeta(
     return prisma.metaSMART.update({
       where: { id: existing.id },
       data: {
+        keyResultId,
         especifica: data.especifica,
         mensuravel: data.mensuravel,
         alcancavel: data.alcancavel,
@@ -370,7 +398,7 @@ export async function saveMeta(
     });
   }
   return prisma.metaSMART.create({
-    data: { empresaId, ...data },
+    data: { empresaId, ...data, keyResultId },
   });
 }
 
@@ -393,6 +421,7 @@ export async function salvarAcoes(
     id?: number;
     empresa: number;
     acao: string;
+    keyResultId?: string | null;
     gravidade: string;
     urgencia: string;
     tendencia: string;
@@ -409,32 +438,30 @@ export async function salvarAcoes(
 
   for (const a of acoes) {
     const acaoText = limitAcaoText(a.acao);
+    const keyResultId = a.keyResultId?.trim() || null;
+    const acaoData = {
+      acao: acaoText,
+      keyResultId,
+      gravidade: a.gravidade,
+      urgencia: a.urgencia,
+      tendencia: a.tendencia,
+      pontuacao: a.pontuacao,
+      prioridade: a.prioridade,
+    };
     let id = a.id;
     if (id) {
       const exists = await prisma.acao.findUnique({ where: { id } });
       if (exists) {
         await prisma.acao.update({
           where: { id },
-          data: {
-            acao: acaoText,
-            gravidade: a.gravidade,
-            urgencia: a.urgencia,
-            tendencia: a.tendencia,
-            pontuacao: a.pontuacao,
-            prioridade: a.prioridade,
-          },
+          data: acaoData,
         });
       } else {
         await prisma.acao.create({
           data: {
             id,
             empresaId: a.empresa,
-            acao: acaoText,
-            gravidade: a.gravidade,
-            urgencia: a.urgencia,
-            tendencia: a.tendencia,
-            pontuacao: a.pontuacao,
-            prioridade: a.prioridade,
+            ...acaoData,
           },
         });
       }
@@ -445,12 +472,7 @@ export async function salvarAcoes(
         data: {
           id,
           empresaId: a.empresa,
-          acao: acaoText,
-          gravidade: a.gravidade,
-          urgencia: a.urgencia,
-          tendencia: a.tendencia,
-          pontuacao: a.pontuacao,
-          prioridade: a.prioridade,
+          ...acaoData,
         },
       });
     }
@@ -550,6 +572,7 @@ export async function salvarPlanoIndividual(
       como: data.como,
       quanto: data.quanto,
       status: "pendente",
+      avaliacao: "sem_avaliacao",
     },
   });
 }
@@ -569,16 +592,27 @@ export async function getPlanosDeAcao(empresaId: number) {
         ? p.quando.toLocaleDateString("pt-BR")
         : "",
       status: (p.status ?? "pendente").toLowerCase(),
+      avaliacao: normalizarAvaliacaoPlano(p.avaliacao),
+      comentarioAvaliacao: p.comentarioAvaliacao ?? "",
     }));
 }
 
 export async function salvarStatusPlanos(
-  updates: { linha: number; status: string }[],
+  updates: {
+    linha: number;
+    status: string;
+    avaliacao?: string;
+    comentarioAvaliacao?: string;
+  }[],
 ) {
   for (const u of updates) {
     await prisma.planoAcao.update({
       where: { id: u.linha },
-      data: { status: u.status },
+      data: {
+        status: u.status,
+        avaliacao: normalizarAvaliacaoPlano(u.avaliacao),
+        comentarioAvaliacao: u.comentarioAvaliacao?.trim().slice(0, 500) || null,
+      },
     });
   }
   return { sucesso: true, mensagem: "Status atualizados com sucesso!" };

@@ -7,12 +7,47 @@ export const SWOT_KEYS = [
 
 export type SwotKey = (typeof SWOT_KEYS)[number];
 
-export type SwotItems = Record<SwotKey, string[]>;
+export type SwotItem = {
+  id: string;
+  texto: string;
+};
+
+export type SwotItems = Record<SwotKey, SwotItem[]>;
 
 export const SWOT_ITEM_MAX_LENGTH = 200;
 
-/** Converte texto legado (livre) ou JSON em lista de itens. */
-export function parseSwotItems(raw: string | null | undefined): string[] {
+export const SWOT_LABELS: Record<SwotKey, string> = {
+  forca: "Força",
+  fraqueza: "Fraqueza",
+  oportunidade: "Oportunidade",
+  ameaca: "Ameaça",
+};
+
+export function createSwotItem(texto: string, id?: string): SwotItem {
+  return {
+    id: id?.trim() || crypto.randomUUID(),
+    texto: texto.trim().slice(0, SWOT_ITEM_MAX_LENGTH),
+  };
+}
+
+function normalizeSwotItem(raw: unknown): SwotItem | null {
+  if (typeof raw === "string") {
+    const texto = raw.trim();
+    return texto ? createSwotItem(texto) : null;
+  }
+
+  if (!raw || typeof raw !== "object") return null;
+
+  const item = raw as Record<string, unknown>;
+  const texto = String(item.texto ?? item.text ?? "").trim();
+  if (!texto) return null;
+
+  const id = typeof item.id === "string" ? item.id : undefined;
+  return createSwotItem(texto, id);
+}
+
+/** Converte texto legado (livre), JSON de strings ou JSON de objetos em lista de itens. */
+export function parseSwotItems(raw: string | null | undefined): SwotItem[] {
   if (!raw?.trim()) return [];
 
   const trimmed = raw.trim();
@@ -21,8 +56,8 @@ export function parseSwotItems(raw: string | null | undefined): string[] {
       const parsed = JSON.parse(trimmed) as unknown;
       if (Array.isArray(parsed)) {
         return parsed
-          .map((item) => String(item).trim())
-          .filter(Boolean);
+          .map(normalizeSwotItem)
+          .filter((item): item is SwotItem => item !== null);
       }
     } catch {
       /* texto legado abaixo */
@@ -33,16 +68,20 @@ export function parseSwotItems(raw: string | null | undefined): string[] {
     return trimmed
       .split("\n")
       .map((line) => line.trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      .map((texto) => createSwotItem(texto));
   }
 
-  return [trimmed];
+  return [createSwotItem(trimmed)];
 }
 
-export function serializeSwotItems(items: string[]): string {
+export function serializeSwotItems(items: SwotItem[]): string {
   const clean = items
-    .map((item) => item.trim().slice(0, SWOT_ITEM_MAX_LENGTH))
-    .filter(Boolean);
+    .map((item) => ({
+      id: item.id,
+      texto: item.texto.trim().slice(0, SWOT_ITEM_MAX_LENGTH),
+    }))
+    .filter((item) => item.texto);
   return JSON.stringify(clean);
 }
 
@@ -77,9 +116,47 @@ export function serializeSwotRecord(items: SwotItems): {
 export function formatSwotItemsForDisplay(raw: string | null | undefined): string {
   const items = parseSwotItems(raw);
   if (items.length === 0) return "";
-  return items.map((item) => `• ${item}`).join("\n");
+  return items.map((item) => `• ${item.texto}`).join("\n");
 }
 
 export function hasAnySwotItem(items: SwotItems): boolean {
   return SWOT_KEYS.some((key) => items[key].length > 0);
+}
+
+export function findSwotItem(
+  items: SwotItems,
+  categoria: SwotKey,
+  swotItemId: string,
+): SwotItem | undefined {
+  return items[categoria]?.find((item) => item.id === swotItemId);
+}
+
+export function listAllSwotItems(
+  items: SwotItems,
+): { categoria: SwotKey; item: SwotItem }[] {
+  return SWOT_KEYS.flatMap((categoria) =>
+    items[categoria].map((item) => ({ categoria, item })),
+  );
+}
+
+export function normalizeSwotItemsBody(body: unknown): SwotItems | null {
+  if (!body || typeof body !== "object") return null;
+
+  const record = body as Record<string, unknown>;
+  const normalized = {} as SwotItems;
+
+  for (const key of SWOT_KEYS) {
+    const value = record[key];
+    if (Array.isArray(value)) {
+      normalized[key] = value
+        .map(normalizeSwotItem)
+        .filter((item): item is SwotItem => item !== null);
+    } else if (typeof value === "string" && value.trim()) {
+      normalized[key] = [createSwotItem(value)];
+    } else {
+      normalized[key] = [];
+    }
+  }
+
+  return normalized;
 }

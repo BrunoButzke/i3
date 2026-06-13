@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { apiFetch, useApi } from "@/components/layout/AppShell";
 import {
+  createSwotItem,
   SWOT_ITEM_MAX_LENGTH,
+  SWOT_LABELS,
   type SwotItems,
   type SwotKey,
 } from "@/lib/swot-utils";
@@ -13,13 +15,6 @@ const SWOT_CLASSES: Record<SwotKey, string> = {
   fraqueza: "i3-swot-fraqueza",
   oportunidade: "i3-swot-oportunidade",
   ameaca: "i3-swot-ameaca",
-};
-
-const SWOT_LABELS: Record<SwotKey, string> = {
-  forca: "Força",
-  fraqueza: "Fraqueza",
-  oportunidade: "Oportunidade",
-  ameaca: "Ameaça",
 };
 
 const SWOT_ICONS: Record<SwotKey, string> = {
@@ -80,21 +75,22 @@ export function SWOTTab() {
 
     const next: SwotItems = {
       ...items,
-      [addKey]: [...items[addKey], text],
+      [addKey]: [...items[addKey], createSwotItem(text)],
     };
     setAddKey(null);
     setNewText("");
     await persist(next);
   }
 
-  function requestRemoveItem(key: SwotKey, index: number) {
-    const texto = items[key][index];
+  function requestRemoveItem(key: SwotKey, itemId: string) {
+    const item = items[key].find((entry) => entry.id === itemId);
+    if (!item) return;
     const preview =
-      texto.length > 80 ? `${texto.slice(0, 80)}…` : texto;
+      item.texto.length > 80 ? `${item.texto.slice(0, 80)}…` : item.texto;
 
     showConfirm(
       `Deseja excluir este item de ${SWOT_LABELS[key].toLowerCase()}?\n\n"${preview}"`,
-      () => removeItem(key, index),
+      () => removeItem(key, itemId),
       {
         title: "Excluir item",
         confirmLabel: "Sim, excluir",
@@ -105,10 +101,10 @@ export function SWOTTab() {
     );
   }
 
-  async function removeItem(key: SwotKey, index: number) {
+  async function removeItem(key: SwotKey, itemId: string) {
     const next: SwotItems = {
       ...items,
-      [key]: items[key].filter((_, i) => i !== index),
+      [key]: items[key].filter((item) => item.id !== itemId),
     };
     if (
       !next.forca.length &&
@@ -147,16 +143,16 @@ export function SWOTTab() {
             </p>
           ) : (
             <ul className="i3-swot-items mb-0">
-              {items[key].map((texto, index) => (
-                <li key={`${key}-${index}`} className="i3-swot-item">
-                  <span>{texto}</span>
+              {items[key].map((item) => (
+                <li key={item.id} className="i3-swot-item">
+                  <span>{item.texto}</span>
                   <button
                     type="button"
                     className="btn btn-sm btn-link text-danger p-0 ms-2"
                     title="Remover"
                     aria-label="Remover item"
                     disabled={saving}
-                    onClick={() => requestRemoveItem(key, index)}
+                    onClick={() => requestRemoveItem(key, item.id)}
                   >
                     <i className="bi bi-x-lg" />
                   </button>

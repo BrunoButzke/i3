@@ -24,3 +24,8 @@ export function isSession(
 ): value is SessionPayload {
   return "empresaId" in value;
 }
+
+export function apiErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return "Erro interno no servidor";
+}

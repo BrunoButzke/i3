@@ -10,6 +10,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Doughnut } from "react-chartjs-2";
 import { apiFetch, useApi } from "@/components/layout/AppShell";
 import {
+  AVALIACAO_PLANO,
+  AVALIACAO_PLANO_KEYS,
+  COMENTARIO_AVALIACAO_MAX_LENGTH,
+  type AvaliacaoPlano,
+  normalizarAvaliacaoPlano,
+} from "@/lib/constants";
+import {
   STATUS_ACOMPANHAMENTO,
   StatusAcompanhamento,
   normalizarStatus,
@@ -23,6 +30,8 @@ type Plano = {
   responsavel: string;
   prazo: string;
   status: string;
+  avaliacao: AvaliacaoPlano;
+  comentarioAvaliacao: string;
 };
 
 function parsePrazoBR(prazo: string): Date | null {
@@ -44,17 +53,72 @@ export function AcompanhamentoTab() {
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
   const [saving, setSaving] = useState(false);
+  const [avaliacaoModalId, setAvaliacaoModalId] = useState<number | null>(null);
+  const [modalAvaliacao, setModalAvaliacao] =
+    useState<AvaliacaoPlano>("sem_avaliacao");
+  const [modalComentario, setModalComentario] = useState("");
 
   useEffect(() => {
-    apiFetch<Plano[]>("/api/acompanhamento").then((rows) =>
+    apiFetch<
+      (Omit<Plano, "avaliacao" | "comentarioAvaliacao"> & {
+        avaliacao?: string;
+        comentarioAvaliacao?: string | null;
+      })[]
+    >("/api/acompanhamento").then((rows) =>
       setPlanos(
         rows.map((p) => ({
           ...p,
           status: normalizarStatus(p.status),
+          avaliacao: normalizarAvaliacaoPlano(p.avaliacao),
+          comentarioAvaliacao: p.comentarioAvaliacao ?? "",
         })),
       ),
     );
   }, []);
+
+  const planoModal =
+    avaliacaoModalId !== null
+      ? planos.find((p) => p.id === avaliacaoModalId) ?? null
+      : null;
+
+  function openAvaliacaoModal(plano: Plano) {
+    setAvaliacaoModalId(plano.id);
+    setModalAvaliacao(plano.avaliacao);
+    setModalComentario(plano.comentarioAvaliacao);
+  }
+
+  function closeAvaliacaoModal() {
+    setAvaliacaoModalId(null);
+    setModalComentario("");
+  }
+
+  function confirmAvaliacaoModal() {
+    if (avaliacaoModalId === null) return;
+    setPlanos((prev) =>
+      prev.map((p) =>
+        p.id === avaliacaoModalId
+          ? {
+              ...p,
+              avaliacao: modalAvaliacao,
+              comentarioAvaliacao: modalComentario
+                .trim()
+                .slice(0, COMENTARIO_AVALIACAO_MAX_LENGTH),
+            }
+          : p,
+      ),
+    );
+    closeAvaliacaoModal();
+  }
+
+  function avaliacaoTooltip(plano: Plano) {
+    const label = AVALIACAO_PLANO[plano.avaliacao].label;
+    if (!plano.comentarioAvaliacao.trim()) return label;
+    const preview =
+      plano.comentarioAvaliacao.length > 80
+        ? `${plano.comentarioAvaliacao.slice(0, 80)}…`
+        : plano.comentarioAvaliacao;
+    return `${label}\n${preview}`;
+  }
 
   const responsaveis = [
     ...new Set(planos.map((p) => p.responsavel).filter(Boolean)),
@@ -98,6 +162,8 @@ export function AcompanhamentoTab() {
       const updates = planos.map((p) => ({
         linha: p.id,
         status: p.status,
+        avaliacao: p.avaliacao,
+        comentarioAvaliacao: p.comentarioAvaliacao,
       }));
       const result = await apiFetch<{ mensagem: string }>("/api/acompanhamento", {
         method: "POST",
@@ -114,95 +180,84 @@ export function AcompanhamentoTab() {
   return (
     <div className="card shadow-sm border-0 mt-3">
       <div className="card-body">
-        <div className="row g-4">
-          <div className="col-lg-4">
-            <div className="p-3 bg-light rounded shadow-sm mb-4">
-              <h6 className="fw-semibold text-secondary mb-3">
-                <i className="bi bi-funnel me-2" />
-                Filtros
-              </h6>
-              <div className="mb-3">
-                <label className="form-label fw-semibold text-secondary">
-                  <i className="bi bi-person-lines-fill me-1" /> Responsável
-                </label>
-                <select
-                  className="form-select shadow-sm"
-                  value={filtroResp}
-                  onChange={(e) => setFiltroResp(e.target.value)}
-                >
-                  <option value="">Todos</option>
-                  {responsaveis.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="mb-3">
-                <label className="form-label fw-semibold text-secondary">
-                  <i className="bi bi-clipboard-check me-1" /> Status
-                </label>
-                <select
-                  className="form-select shadow-sm"
-                  value={filtroStatus}
-                  onChange={(e) => setFiltroStatus(e.target.value)}
-                >
-                  <option value="">Todos</option>
-                  {(
-                    Object.entries(STATUS_ACOMPANHAMENTO) as [
-                      StatusAcompanhamento,
-                      (typeof STATUS_ACOMPANHAMENTO)[StatusAcompanhamento],
-                    ][]
-                  ).map(([valor, { label }]) => (
-                    <option key={valor} value={valor}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="mb-3">
-                <label className="form-label fw-semibold text-secondary">
-                  <i className="bi bi-calendar-event me-1" /> Data início
-                </label>
-                <input
-                  type="date"
-                  className="form-control shadow-sm"
-                  value={dataInicio}
-                  onChange={(e) => setDataInicio(e.target.value)}
-                />
-              </div>
-              <div className="mb-2">
-                <label className="form-label fw-semibold text-secondary">
-                  <i className="bi bi-calendar-event me-1" /> Data fim
-                </label>
-                <input
-                  type="date"
-                  className="form-control shadow-sm"
-                  value={dataFim}
-                  onChange={(e) => setDataFim(e.target.value)}
-                />
-              </div>
+        <div className="i3-acomp-filtros mb-3">
+          <div className="row g-2 align-items-end">
+            <div className="col-6 col-md-3">
+              <label className="form-label i3-acomp-filtro-label">
+                Responsável
+              </label>
+              <select
+                className="form-select form-select-sm"
+                value={filtroResp}
+                onChange={(e) => setFiltroResp(e.target.value)}
+              >
+                <option value="">Todos</option>
+                {responsaveis.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
             </div>
+            <div className="col-6 col-md-3">
+              <label className="form-label i3-acomp-filtro-label">Status</label>
+              <select
+                className="form-select form-select-sm"
+                value={filtroStatus}
+                onChange={(e) => setFiltroStatus(e.target.value)}
+              >
+                <option value="">Todos</option>
+                {(
+                  Object.entries(STATUS_ACOMPANHAMENTO) as [
+                    StatusAcompanhamento,
+                    (typeof STATUS_ACOMPANHAMENTO)[StatusAcompanhamento],
+                  ][]
+                ).map(([valor, { label }]) => (
+                  <option key={valor} value={valor}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-6 col-md-3">
+              <label className="form-label i3-acomp-filtro-label">
+                Data início
+              </label>
+              <input
+                type="date"
+                className="form-control form-control-sm"
+                value={dataInicio}
+                onChange={(e) => setDataInicio(e.target.value)}
+              />
+            </div>
+            <div className="col-6 col-md-3">
+              <label className="form-label i3-acomp-filtro-label">Data fim</label>
+              <input
+                type="date"
+                className="form-control form-control-sm"
+                value={dataFim}
+                onChange={(e) => setDataFim(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
 
-            <div className="card border-0 shadow-sm">
-              <div className="card-header bg-transparent border-0 pb-0">
-                <h6 className="fw-semibold text-secondary mb-0">
-                  <i className="bi bi-pie-chart me-1" /> Status do Acompanhamento
-                </h6>
-              </div>
-              <div className="card-body p-3">
-                <Doughnut
-                  data={chartData}
-                  options={{
-                    responsive: true,
-                    plugins: { legend: { position: "bottom" } },
-                  }}
-                />
-              </div>
+        <div className="row g-3">
+          <div className="col-lg-3">
+            <div className="i3-acomp-chart-card">
+              <h6 className="i3-acomp-chart-title">Status do Acompanhamento</h6>
+              <Doughnut
+                data={chartData}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: true,
+                  plugins: { legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 10 } } } },
+                }}
+              />
             </div>
           </div>
 
-          <div className="col-lg-8">
+          <div className="col-lg-9">
             <div className="table-responsive">
               <table className="table table-hover align-middle mb-0">
                 <thead className="table-light">
@@ -218,12 +273,18 @@ export function AcompanhamentoTab() {
                     >
                       Status
                     </th>
+                    <th
+                      className="text-secondary fw-semibold text-center"
+                      style={{ width: 56 }}
+                    >
+                      Aval.
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtrados.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="text-muted text-center">
+                      <td colSpan={5} className="text-muted text-center">
                         Nenhum acompanhamento encontrado
                       </td>
                     </tr>
@@ -279,6 +340,17 @@ export function AcompanhamentoTab() {
                               ))}
                             </select>
                           </td>
+                          <td className="text-center">
+                            <button
+                              type="button"
+                              className={`i3-avaliacao-icon-btn ${AVALIACAO_PLANO[p.avaliacao].iconClass}`}
+                              title={avaliacaoTooltip(p)}
+                              aria-label={`Avaliar: ${AVALIACAO_PLANO[p.avaliacao].label}`}
+                              onClick={() => openAvaliacaoModal(p)}
+                            >
+                              <i className="bi bi-check-lg" />
+                            </button>
+                          </td>
                         </tr>
                       );
                     })
@@ -308,6 +380,74 @@ export function AcompanhamentoTab() {
           </div>
         </div>
       </div>
+
+      {planoModal && (
+        <div className="i3-modal-backdrop" onClick={closeAvaliacaoModal}>
+          <div
+            className="i3-modal"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+          >
+            <div className="i3-modal-header">
+              <h5 className="i3-modal-title">Avaliar ação</h5>
+            </div>
+            <div className="i3-modal-body">
+              <p className="text-muted fs-8 mb-3">{planoModal.acao}</p>
+
+              <label htmlFor="avaliacao-comentario" className="form-label">
+                Comentário
+              </label>
+              <textarea
+                id="avaliacao-comentario"
+                className="form-control mb-3"
+                rows={4}
+                maxLength={COMENTARIO_AVALIACAO_MAX_LENGTH}
+                value={modalComentario}
+                autoFocus
+                placeholder="Descreva observações sobre a ação..."
+                onChange={(e) => setModalComentario(e.target.value)}
+              />
+              <div className="text-muted fs-8 mb-3 text-end">
+                {modalComentario.length}/{COMENTARIO_AVALIACAO_MAX_LENGTH}
+              </div>
+
+              <label htmlFor="avaliacao-estado" className="form-label">
+                Avaliação
+              </label>
+              <select
+                id="avaliacao-estado"
+                className={`form-select i3-avaliacao-select ${AVALIACAO_PLANO[modalAvaliacao].className}`}
+                value={modalAvaliacao}
+                onChange={(e) =>
+                  setModalAvaliacao(normalizarAvaliacaoPlano(e.target.value))
+                }
+              >
+                {AVALIACAO_PLANO_KEYS.map((key) => (
+                  <option key={key} value={key}>
+                    {AVALIACAO_PLANO[key].label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="i3-modal-footer">
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={closeAvaliacaoModal}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={confirmAvaliacaoModal}
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

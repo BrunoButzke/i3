@@ -1,6 +1,8 @@
 import { ORDEM_RESPOSTAS, RESPOSTA_PESOS } from "@/lib/scoring";
 import { prisma } from "@/lib/prisma";
-import { formatSwotItemsForDisplay } from "@/lib/swot-utils";
+import { formatSwotItemsForDisplay, findSwotItem, parseSwotRecord, SWOT_LABELS } from "@/lib/swot-utils";
+import { findKeyResultInOkrs } from "@/lib/okr-utils";
+import { getOKRs } from "@/lib/services/i3-service";
 import { getRespostasEfetivas } from "@/lib/services/i3-service";
 
 const PROCESSOS_IGNORAR = [
@@ -244,7 +246,7 @@ export async function getRelatorioCompleto(empresaId: number) {
     getResumoCapacidade(empresaId),
     compararEmpresaPorIndicador(empresaId),
     prisma.sWOT.findFirst({ where: { empresaId } }),
-    prisma.oKR.findMany({ where: { empresaId } }),
+    getOKRs(empresaId),
     prisma.metaSMART.findMany({ where: { empresaId } }),
     prisma.planoAcao.findMany({ where: { empresaId }, orderBy: { id: "asc" } }),
     prisma.empresa.findUnique({ where: { id: empresaId } }),
@@ -258,6 +260,25 @@ export async function getRelatorioCompleto(empresaId: number) {
     mediasInteiras.length > 0
       ? await getTodosNiveisMacroDimensao(mediasInteiras)
       : [];
+
+  const swotItems = swot ? parseSwotRecord(swot) : null;
+  const okrsFormatados = okrs
+    .filter((item) => item.objetivo.trim() || item.keyResults.length > 0)
+    .map((item) => ({
+      objetivo: item.objetivo,
+      keyResults: item.keyResults.map((kr) => ({
+        texto: kr.texto,
+        swotItens: kr.swotRefs
+          .map((ref) => {
+            const swotItem = swotItems
+              ? findSwotItem(swotItems, ref.categoria, ref.swotItemId)
+              : undefined;
+            if (!swotItem) return null;
+            return `${SWOT_LABELS[ref.categoria]}: ${swotItem.texto}`;
+          })
+          .filter((label): label is string => Boolean(label)),
+      })),
+    }));
 
   return {
     empresa: empresa?.nome ?? "",
@@ -279,8 +300,16 @@ export async function getRelatorioCompleto(empresaId: number) {
           ameaca: formatSwotItemsForDisplay(swot.ameaca),
         }
       : null,
-    okrs,
-    metas,
+    okrs: okrsFormatados,
+    metas: metas.map((meta) => {
+      const kr = meta.keyResultId
+        ? findKeyResultInOkrs(okrs, meta.keyResultId)
+        : undefined;
+      return {
+        ...meta,
+        krTexto: kr?.texto ?? null,
+      };
+    }),
     planos: planos.filter((p) => p.oque),
   };
 }

@@ -4,10 +4,15 @@ import { useEffect, useState } from "react";
 import { apiFetch, useApi } from "@/components/layout/AppShell";
 import { ACAO_MAX_LENGTH, limitAcaoText } from "@/lib/constants";
 import { calcularPrioridadeGUT } from "@/components/tabs/shared";
+import {
+  collectKeyResultsFromOkrs,
+  type OkrData,
+} from "@/lib/okr-utils";
 
 type Acao = {
   id?: number;
   acao: string;
+  keyResultId: string;
   gravidade: string;
   urgencia: string;
   tendencia: string;
@@ -19,6 +24,7 @@ function emptyAcao(): Acao {
   const { pontuacao, prioridade } = calcularPrioridadeGUT(1, 1, 1);
   return {
     acao: "",
+    keyResultId: "",
     gravidade: "1",
     urgencia: "1",
     tendencia: "1",
@@ -39,24 +45,46 @@ function recalc(a: Acao): Acao {
   };
 }
 
+function mapAcao(a: Acao & { keyResultId?: string | null }): Acao {
+  return recalc({
+    ...a,
+    acao: limitAcaoText(a.acao),
+    keyResultId: a.keyResultId ?? "",
+  });
+}
+
 export function PriorizacaoTab({ empresaId }: { empresaId: number }) {
   const { showModal, showConfirm } = useApi();
   const [acoes, setAcoes] = useState<Acao[]>([]);
+  const [krOptions, setKrOptions] = useState<
+    { id: string; label: string }[]
+  >([]);
   const [savingId, setSavingId] = useState<number | "new" | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiFetch<Acao[]>("/api/acoes").then((data) => {
-      setAcoes(
-        data.length > 0
-          ? data.map((a) => recalc({ ...a, acao: limitAcaoText(a.acao) }))
-          : [emptyAcao()],
-      );
-    });
+    Promise.all([
+      apiFetch<(Acao & { keyResultId?: string | null })[]>("/api/acoes"),
+      apiFetch<OkrData[]>("/api/okr"),
+    ])
+      .then(([acoesData, okrsData]) => {
+        setKrOptions(
+          collectKeyResultsFromOkrs(okrsData).map(({ kr, label }) => ({
+            id: kr.id,
+            label,
+          })),
+        );
+        setAcoes(
+          acoesData.length > 0
+            ? acoesData.map(mapAcao)
+            : [emptyAcao()],
+        );
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   function update(index: number, field: keyof Acao, value: string) {
-    const next =
-      field === "acao" ? limitAcaoText(value) : value;
+    const next = field === "acao" ? limitAcaoText(value) : value;
     setAcoes((prev) =>
       prev.map((a, i) => {
         if (i !== index) return a;
@@ -76,8 +104,10 @@ export function PriorizacaoTab({ empresaId }: { empresaId: number }) {
         }),
       });
       showModal(result.mensagem);
-      const refreshed = await apiFetch<Acao[]>("/api/acoes");
-      if (refreshed.length > 0) setAcoes(refreshed.map(recalc));
+      const refreshed = await apiFetch<
+        (Acao & { keyResultId?: string | null })[]
+      >("/api/acoes");
+      if (refreshed.length > 0) setAcoes(refreshed.map(mapAcao));
     } catch (err) {
       showModal(err instanceof Error ? err.message : "Erro");
     } finally {
@@ -99,8 +129,22 @@ export function PriorizacaoTab({ empresaId }: { empresaId: number }) {
     });
   }
 
+  if (loading) {
+    return (
+      <div className="text-center py-5">
+        <div className="i3-loading-spinner mx-auto" role="status" />
+      </div>
+    );
+  }
+
   return (
     <form className="mb-5" onSubmit={(e) => e.preventDefault()}>
+      {krOptions.length === 0 && (
+        <p className="text-muted fs-8 mb-3">
+          Cadastre KRs na aba OKR para associá-los às ações.
+        </p>
+      )}
+
       <div className="card shadow-sm mb-4">
         <div className="card-body">
           <div className="table-responsive">
@@ -108,6 +152,7 @@ export function PriorizacaoTab({ empresaId }: { empresaId: number }) {
               <thead>
                 <tr>
                   <th>Ação</th>
+                  <th style={{ minWidth: "11rem" }}>KR</th>
                   <th>Gravidade (G)</th>
                   <th>Urgência (U)</th>
                   <th>Tendência (T)</th>
@@ -132,6 +177,22 @@ export function PriorizacaoTab({ empresaId }: { empresaId: number }) {
                         maxLength={ACAO_MAX_LENGTH}
                         onChange={(e) => update(i, "acao", e.target.value)}
                       />
+                    </td>
+                    <td>
+                      <select
+                        className="form-select form-select-sm i3-table-input"
+                        value={a.keyResultId}
+                        onChange={(e) =>
+                          update(i, "keyResultId", e.target.value)
+                        }
+                      >
+                        <option value="">—</option>
+                        {krOptions.map((kr) => (
+                          <option key={kr.id} value={kr.id}>
+                            {kr.label}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     {(["gravidade", "urgencia", "tendencia"] as const).map(
                       (f) => (

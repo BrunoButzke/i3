@@ -91,10 +91,12 @@ model OKR {
   empresa   Empresa  @relation(fields: [empresaId], references: [id])
   empresaId Int
 
-  objetivo String
-  okr1     String?
-  okr2     String?
-  okr3     String?
+  objetivo   String @default("")
+  keyResults Json?
+
+  okr1 String?
+  okr2 String?
+  okr3 String?
 }
 
 model MetaSMART {
@@ -102,12 +104,13 @@ model MetaSMART {
   empresa   Empresa  @relation(fields: [empresaId], references: [id])
   empresaId Int
 
-  objetivo    String
-  especifica  String?
-  mensuravel  String?
-  alcancavel  String?
-  relevante   String?
-  temporal    String?
+  objetivo     String
+  keyResultId  String?
+  especifica   String?
+  mensuravel   String?
+  alcancavel   String?
+  relevante    String?
+  temporal     String?
 }
 
 model Acao {
@@ -115,12 +118,13 @@ model Acao {
   empresa    Empresa @relation(fields: [empresaId], references: [id])
   empresaId  Int
 
-  acao       String
-  gravidade  String?
-  urgencia   String?
-  tendencia  String?
-  pontuacao  String?
-  prioridade String?
+  acao         String
+  keyResultId  String?
+  gravidade    String?
+  urgencia     String?
+  tendencia    String?
+  pontuacao    String?
+  prioridade   String?
 }
 
 model PlanoAcao {
@@ -134,8 +138,10 @@ model PlanoAcao {
   onde      String?
   porque    String?
   como      String?
-  quanto    String?
-  status    String?
+  quanto     String?
+  status     String?
+  avaliacao  String?  @default("sem_avaliacao")
+  comentarioAvaliacao String?
 }
 
 model MemoriaSIRI {

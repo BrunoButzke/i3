@@ -10,6 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "prisma:generate": "prisma generate",
+    "prisma:generate:docker": "docker exec -e PUID=$(id -u) -e PGID=$(id -g) i3-app sh -c 'npx prisma generate && chown -R $PUID:$PGID /app/src/generated'",
+    "prisma:push:docker": "docker exec i3-app npx prisma db push",
     "prisma:migrate": "prisma migrate dev",
     "db:import": "tsx scripts/import-from-xlsx.ts",
     "db:maintenance": "tsx scripts/db-maintenance.ts",

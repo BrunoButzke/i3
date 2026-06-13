@@ -36,6 +36,8 @@ services:
       APPSCRIPT_DATA_PATH: /data/appScript
       NODE_ENV: development
       RUN_DB_IMPORT: ${RUN_DB_IMPORT:-false}
+      PUID: ${UID:-1000}
+      PGID: ${GID:-1000}
     volumes:
       - .:/app
       - node_modules:/app/node_modules

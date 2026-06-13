@@ -32,6 +32,54 @@ export function limitAcaoText(text: string): string {
   return text.slice(0, ACAO_MAX_LENGTH);
 }
 
+export const AVALIACAO_PLANO_KEYS = [
+  "sem_avaliacao",
+  "inadequado",
+  "adequado_com_fraqueza",
+  "aprimoravel",
+  "adequado",
+] as const;
+
+export type AvaliacaoPlano = (typeof AVALIACAO_PLANO_KEYS)[number];
+
+export const COMENTARIO_AVALIACAO_MAX_LENGTH = 500;
+
+export const AVALIACAO_PLANO: Record<
+  AvaliacaoPlano,
+  { label: string; className: string; iconClass: string }
+> = {
+  sem_avaliacao: {
+    label: "Sem avaliação",
+    className: "i3-avaliacao-sem",
+    iconClass: "i3-avaliacao-icon-sem",
+  },
+  inadequado: {
+    label: "Inadequado",
+    className: "i3-avaliacao-inadequado",
+    iconClass: "i3-avaliacao-icon-inadequado",
+  },
+  adequado_com_fraqueza: {
+    label: "Adequado com Fraqueza",
+    className: "i3-avaliacao-alerta",
+    iconClass: "i3-avaliacao-icon-alerta",
+  },
+  aprimoravel: {
+    label: "Aprimorável",
+    className: "i3-avaliacao-alerta",
+    iconClass: "i3-avaliacao-icon-alerta",
+  },
+  adequado: {
+    label: "Adequado",
+    className: "i3-avaliacao-adequado",
+    iconClass: "i3-avaliacao-icon-adequado",
+  },
+};
+
+export function normalizarAvaliacaoPlano(value: string | null | undefined): AvaliacaoPlano {
+  const key = value?.trim() as AvaliacaoPlano;
+  return AVALIACAO_PLANO_KEYS.includes(key) ? key : "sem_avaliacao";
+}
+
 export type TabId =
   | "diagnostico"
   | "swot"

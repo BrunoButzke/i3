@@ -1,10 +1,14 @@
 import { PrismaPg } from "@prisma/adapter-pg";
+import fs from "fs";
+import path from "path";
 import { Pool } from "pg";
 import { PrismaClient } from "../generated/prisma/client";
 
 declare global {
   // eslint-disable-next-line no-var
   var prisma: PrismaClient | undefined;
+  // eslint-disable-next-line no-var
+  var prismaClientMtime: number | undefined;
 }
 
 function createPrismaClient() {
@@ -15,8 +19,40 @@ function createPrismaClient() {
   return new PrismaClient({ adapter });
 }
 
-export const prisma = global.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== "production") {
-  global.prisma = prisma;
+function getGeneratedClientMtime(): number | undefined {
+  try {
+    const classPath = path.join(
+      process.cwd(),
+      "src/generated/prisma/internal/class.ts",
+    );
+    return fs.statSync(classPath).mtimeMs;
+  } catch {
+    return undefined;
+  }
 }
+
+function getPrismaClient(): PrismaClient {
+  if (process.env.NODE_ENV === "production") {
+    return global.prisma ?? createPrismaClient();
+  }
+
+  const mtime = getGeneratedClientMtime();
+  if (
+    global.prisma &&
+    mtime !== undefined &&
+    global.prismaClientMtime !== undefined &&
+    global.prismaClientMtime !== mtime
+  ) {
+    void global.prisma.$disconnect();
+    global.prisma = undefined;
+  }
+
+  if (!global.prisma) {
+    global.prisma = createPrismaClient();
+    global.prismaClientMtime = mtime;
+  }
+
+  return global.prisma;
+}
+
+export const prisma = getPrismaClient();

@@ -320,19 +320,30 @@ async function importSWOT(prisma: PrismaClient, rows: Row[]) {
 
 async function importOKR(prisma: PrismaClient, rows: Row[]) {
   const data: Prisma.OKRCreateManyInput[] = [];
+
   for (const row of rows) {
     if (isHeaderRow(row, "Empresa")) continue;
     const empresaId = intId(row[0]);
     const objetivo = str(row[1]);
-    if (!empresaId || !objetivo) continue;
+    if (!empresaId) continue;
+
+    const textos = [str(row[2]), str(row[3]), str(row[4])].filter(Boolean);
+    if (!objetivo && textos.length === 0) continue;
+
     data.push({
       empresaId,
       objetivo,
-      okr1: str(row[2]) || null,
-      okr2: str(row[3]) || null,
-      okr3: str(row[4]) || null,
+      keyResults: textos.map((texto) => ({
+        id: crypto.randomUUID(),
+        texto,
+        swotRefs: [],
+      })),
+      okr1: null,
+      okr2: null,
+      okr3: null,
     });
   }
+
   if (data.length) await prisma.oKR.createMany({ data });
   console.log(`  ✓ OKR: ${data.length}`);
 }
