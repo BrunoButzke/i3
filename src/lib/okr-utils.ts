@@ -1,4 +1,9 @@
-import type { SwotKey } from "@/lib/swot-utils";
+import {
+  normalizeSwotKey,
+  resolveSwotRef,
+  type SwotItems,
+  type SwotKey,
+} from "@/lib/swot-utils";
 
 export const KR_MAX_SWOT_REFS = 3;
 export const KR_TEXT_MAX_LENGTH = 500;
@@ -6,6 +11,8 @@ export const KR_TEXT_MAX_LENGTH = 500;
 export type SwotRef = {
   categoria: SwotKey;
   swotItemId: string;
+  /** Texto persistido para exibição no relatório quando ids mudam. */
+  texto?: string;
 };
 
 export type KeyResult = {
@@ -31,16 +38,24 @@ export function createKeyResult(texto = ""): KeyResult {
 function normalizeSwotRef(raw: unknown): SwotRef | null {
   if (!raw || typeof raw !== "object") return null;
   const ref = raw as Record<string, unknown>;
-  const categoria = ref.categoria;
-  const swotItemId = ref.swotItemId;
-  if (
-    typeof categoria !== "string" ||
-    typeof swotItemId !== "string" ||
-    !swotItemId.trim()
-  ) {
+  const categoriaRaw = ref.categoria;
+  const swotItemId = ref.swotItemId ?? ref.swot_item_id;
+  if (typeof categoriaRaw !== "string" || typeof swotItemId !== "string") {
     return null;
   }
-  return { categoria: categoria as SwotKey, swotItemId: swotItemId.trim() };
+  const categoria = normalizeSwotKey(categoriaRaw);
+  if (!categoria || !swotItemId.trim()) return null;
+
+  const texto =
+    typeof ref.texto === "string" && ref.texto.trim()
+      ? ref.texto.trim().slice(0, 500)
+      : undefined;
+
+  return {
+    categoria,
+    swotItemId: swotItemId.trim(),
+    ...(texto ? { texto } : {}),
+  };
 }
 
 function normalizeKeyResult(raw: unknown): KeyResult | null {
@@ -51,8 +66,9 @@ function normalizeKeyResult(raw: unknown): KeyResult | null {
     typeof kr.id === "string" && kr.id.trim()
       ? kr.id.trim()
       : crypto.randomUUID();
-  const swotRefs = Array.isArray(kr.swotRefs)
-    ? kr.swotRefs
+  const swotRefsRaw = kr.swotRefs ?? kr.swot_refs;
+  const swotRefs = Array.isArray(swotRefsRaw)
+    ? swotRefsRaw
         .map(normalizeSwotRef)
         .filter((ref): ref is SwotRef => ref !== null)
         .slice(0, KR_MAX_SWOT_REFS)
@@ -134,4 +150,20 @@ export function findKeyResultInOkrs(
     if (kr) return kr;
   }
   return undefined;
+}
+
+/** Garante texto persistido nas refs SWOT para exibição estável no relatório. */
+export function enrichSwotRefs(
+  refs: SwotRef[],
+  swot: SwotItems | null,
+): SwotRef[] {
+  return refs.map((ref) => {
+    const item = resolveSwotRef(swot, ref);
+    if (!item) return ref;
+    return {
+      categoria: ref.categoria,
+      swotItemId: ref.swotItemId,
+      texto: item.texto,
+    };
+  });
 }

@@ -2,6 +2,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { limitAcaoText, normalizarAvaliacaoPlano } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import {
+  enrichSwotRefs,
   parseKeyResults,
   sanitizeKeyResults,
   type KeyResult,
@@ -319,11 +320,23 @@ function rowToOkrData(row: {
 }
 
 export async function getOKRs(empresaId: number): Promise<OkrData[]> {
-  const rows = await prisma.oKR.findMany({
-    where: { empresaId },
-    orderBy: { id: "asc" },
+  const [rows, swot] = await Promise.all([
+    prisma.oKR.findMany({
+      where: { empresaId },
+      orderBy: { id: "asc" },
+    }),
+    getSWOT(empresaId),
+  ]);
+  return rows.map((row) => {
+    const okr = rowToOkrData(row);
+    return {
+      ...okr,
+      keyResults: okr.keyResults.map((kr) => ({
+        ...kr,
+        swotRefs: enrichSwotRefs(kr.swotRefs, swot),
+      })),
+    };
   });
-  return rows.map(rowToOkrData);
 }
 
 /** @deprecated Use getOKRs */
@@ -334,7 +347,11 @@ export async function getOKR(empresaId: number): Promise<OkrData | null> {
 
 export async function saveOKR(empresaId: number, data: OkrData) {
   const objetivo = data.objetivo.trim();
-  const keyResults = sanitizeKeyResults(data.keyResults);
+  const swot = await getSWOT(empresaId);
+  const keyResults = sanitizeKeyResults(data.keyResults).map((kr) => ({
+    ...kr,
+    swotRefs: enrichSwotRefs(kr.swotRefs, swot),
+  }));
   const payload = {
     objetivo,
     keyResults: keyResults as unknown as Prisma.InputJsonValue,

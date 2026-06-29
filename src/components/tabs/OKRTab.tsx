@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { apiFetch, useApi } from "@/components/layout/AppShell";
 import { SaveRemoveButtons, TabBloco } from "@/components/tabs/shared";
 import {
+  enrichSwotRefs,
   createKeyResult,
   emptyOkr,
   KR_MAX_SWOT_REFS,
@@ -13,6 +14,7 @@ import {
   type SwotRef,
 } from "@/lib/okr-utils";
 import {
+  formatSwotRefLabels,
   listAllSwotItems,
   SWOT_LABELS,
   type SwotItems,
@@ -54,8 +56,19 @@ export function OKRTab() {
       apiFetch<SwotItems | null>("/api/swot"),
     ])
       .then(([okrData, swotData]) => {
-        setOkrs(okrData.length > 0 ? okrData : [emptyOkr()]);
-        setSwot(swotData ?? EMPTY_SWOT);
+        const swotItems = swotData ?? EMPTY_SWOT;
+        setSwot(swotItems);
+        setOkrs(
+          okrData.length > 0
+            ? okrData.map((okr) => ({
+                ...okr,
+                keyResults: okr.keyResults.map((kr) => ({
+                  ...kr,
+                  swotRefs: enrichSwotRefs(kr.swotRefs, swotItems),
+                })),
+              }))
+            : [emptyOkr()],
+        );
       })
       .finally(() => setLoading(false));
   }, []);
@@ -116,35 +129,46 @@ export function OKRTab() {
   }
 
   function togglePickerRef(categoria: SwotKey, swotItemId: string) {
+    const exists = pickerSelection.some(
+      (ref) =>
+        ref.categoria === categoria && ref.swotItemId === swotItemId,
+    );
+
+    if (!exists && pickerSelection.length >= KR_MAX_SWOT_REFS) {
+      showModal(`Selecione no máximo ${KR_MAX_SWOT_REFS} itens da SWOT.`);
+      return;
+    }
+
     setPickerSelection((prev) => {
-      const exists = prev.some(
+      const selected = prev.some(
         (ref) =>
           ref.categoria === categoria && ref.swotItemId === swotItemId,
       );
-      if (exists) {
+      if (selected) {
         return prev.filter(
           (ref) =>
             !(ref.categoria === categoria && ref.swotItemId === swotItemId),
         );
       }
-      if (prev.length >= KR_MAX_SWOT_REFS) {
-        showModal(`Selecione no máximo ${KR_MAX_SWOT_REFS} itens da SWOT.`);
-        return prev;
-      }
-      return [...prev, { categoria, swotItemId }];
+      const texto = swot[categoria]?.find((i) => i.id === swotItemId)?.texto;
+      return [
+        ...prev,
+        { categoria, swotItemId, ...(texto ? { texto } : {}) },
+      ];
     });
   }
 
   function confirmSwotPicker() {
     if (!pickerContext) return;
     const { okrIndex, krId } = pickerContext;
+    const refs = enrichSwotRefs(pickerSelection, swot);
     setOkrs((prev) =>
       prev.map((okr, i) =>
         i === okrIndex
           ? {
               ...okr,
               keyResults: okr.keyResults.map((kr) =>
-                kr.id === krId ? { ...kr, swotRefs: pickerSelection } : kr,
+                kr.id === krId ? { ...kr, swotRefs: refs } : kr,
               ),
             }
           : okr,
@@ -177,11 +201,14 @@ export function OKRTab() {
   }
 
   function resolveSwotLabel(ref: SwotRef) {
-    const item = swot[ref.categoria]?.find((entry) => entry.id === ref.swotItemId);
-    if (!item) return `${SWOT_LABELS[ref.categoria]} (removido)`;
+    const [label] = formatSwotRefLabels(swot, [ref]);
+    if (label) return label;
     const preview =
-      item.texto.length > 60 ? `${item.texto.slice(0, 60)}…` : item.texto;
-    return `${SWOT_LABELS[ref.categoria]}: ${preview}`;
+      ref.texto && ref.texto.length > 60
+        ? `${ref.texto.slice(0, 60)}…`
+        : ref.texto;
+    if (preview) return `${SWOT_LABELS[ref.categoria]}: ${preview}`;
+    return `${SWOT_LABELS[ref.categoria]} (removido)`;
   }
 
   function validateOkr(okr: OkrData) {

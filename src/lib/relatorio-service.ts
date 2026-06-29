@@ -1,6 +1,15 @@
 import { ORDEM_RESPOSTAS, RESPOSTA_PESOS } from "@/lib/scoring";
 import { prisma } from "@/lib/prisma";
-import { formatSwotItemsForDisplay, findSwotItem, parseSwotRecord, SWOT_LABELS } from "@/lib/swot-utils";
+import { calcularMatrizCapacidades } from "@/lib/relatorio/relatorio-capacidade";
+import { getDirecionamentoEstrategico } from "@/lib/relatorio/relatorio-direcionamento";
+import { getRelatorioAnexo } from "@/lib/relatorio/relatorio-anexo";
+import { montarConclusao } from "@/lib/relatorio/relatorio-conclusao";
+import { getRelatorioTeor } from "@/lib/relatorio/relatorio-teor";
+import {
+  MACROS_DIGITAIS,
+  ORDEM_PRINCIPIOS,
+} from "@/lib/relatorio/relatorio-textos";
+import { formatSwotItemsForDisplay, formatSwotRefLabels, parseSwotRecord } from "@/lib/swot-utils";
 import { findKeyResultInOkrs } from "@/lib/okr-utils";
 import { getOKRs } from "@/lib/services/i3-service";
 import { getRespostasEfetivas } from "@/lib/services/i3-service";
@@ -82,6 +91,53 @@ export async function calcularMediasPorEstrutura(empresaId: number) {
   });
 
   return mediasPorEstrutura;
+}
+
+export async function calcularMediasPorPrincipio(empresaId: number) {
+  const respostas = await getRespostasEfetivas(empresaId);
+  const agrupado: Record<string, Record<string, number>> = {};
+
+  for (const r of respostas) {
+    if (!r.resposta || r.resposta === "Irrelevante") continue;
+    if (!agrupado[r.principio]) agrupado[r.principio] = {};
+    agrupado[r.principio][r.resposta] =
+      (agrupado[r.principio][r.resposta] ?? 0) + (r.resultado ?? 0);
+  }
+
+  const mediasPorPrincipio: Record<
+    string,
+    { resposta: string; percentual: string }[]
+  > = {};
+
+  for (const principio of ORDEM_PRINCIPIOS) {
+    const respostasMap = agrupado[principio] ?? {};
+    const somaTotal = Object.values(respostasMap).reduce((a, b) => a + b, 0);
+    mediasPorPrincipio[principio] = ORDEM_RESPOSTAS.map((resposta) => {
+      const total = respostasMap[resposta] ?? 0;
+      const peso = RESPOSTA_PESOS[resposta] ?? 0;
+      const percentual =
+        somaTotal > 0
+          ? ((total * peso) / (somaTotal * 6) * 100).toFixed(2)
+          : "0.00";
+      return { resposta, percentual };
+    });
+  }
+
+  for (const [principio, respostasMap] of Object.entries(agrupado)) {
+    if (mediasPorPrincipio[principio]) continue;
+    const somaTotal = Object.values(respostasMap).reduce((a, b) => a + b, 0);
+    mediasPorPrincipio[principio] = ORDEM_RESPOSTAS.map((resposta) => {
+      const total = respostasMap[resposta] ?? 0;
+      const peso = RESPOSTA_PESOS[resposta] ?? 0;
+      const percentual =
+        somaTotal > 0
+          ? ((total * peso) / (somaTotal * 6) * 100).toFixed(2)
+          : "0.00";
+      return { resposta, percentual };
+    });
+  }
+
+  return mediasPorPrincipio;
 }
 
 export async function getResultadoPorDimensao(empresaId: number) {
@@ -212,27 +268,18 @@ export async function compararEmpresaPorIndicador(empresaId: number) {
   };
 }
 
-export async function getTodosNiveisMacroDimensao(mediasInteiras: number[]) {
-  const rows = await prisma.macroDimensao.findMany();
-  return mediasInteiras.map((media) => {
-    const match = rows.find((r) => r.nivel === media);
-    return match?.texto ?? "";
-  });
-}
-
-const ROADMAP_TITULOS = [
-  "Macro-Dimensão 1: Estratégia e Governança Digital",
-  "Macro-Dimensão 2: Processos e Operações Inteligentes",
-  "Macro-Dimensão 3: Tecnologia e Infraestrutura Digital",
-  "Macro-Dimensão 4: Pessoas e Competências Digitais",
-];
+const PROCESSOS_DIGITAIS: string[] = MACROS_DIGITAIS.map((m) => m.processo);
 
 export async function getRelatorioCompleto(empresaId: number) {
   const [
     totais,
     mediasPorEstrutura,
+    mediasPorPrincipio,
     dimensoes,
     resumoCapacidade,
+    matrizCapacidades,
+    direcionamento,
+    teor,
     analise3B,
     swot,
     okrs,
@@ -242,8 +289,12 @@ export async function getRelatorioCompleto(empresaId: number) {
   ] = await Promise.all([
     calcularTotalPorRespostaEmpresa(empresaId),
     calcularMediasPorEstrutura(empresaId),
+    calcularMediasPorPrincipio(empresaId),
     getResultadoPorDimensao(empresaId),
     getResumoCapacidade(empresaId),
+    calcularMatrizCapacidades(empresaId),
+    getDirecionamentoEstrategico(empresaId),
+    getRelatorioTeor(empresaId),
     compararEmpresaPorIndicador(empresaId),
     prisma.sWOT.findFirst({ where: { empresaId } }),
     getOKRs(empresaId),
@@ -253,13 +304,18 @@ export async function getRelatorioCompleto(empresaId: number) {
   ]);
 
   const percentuaisMaturidade = calcularPercentuaisMaturidade(totais);
-  const mediasInteiras = dimensoes
-    .slice(0, 4)
-    .map((d) => Math.floor(d.media));
-  const roadmap =
-    mediasInteiras.length > 0
-      ? await getTodosNiveisMacroDimensao(mediasInteiras)
-      : [];
+  const dimensoesOperacionais = dimensoes
+    .filter((d) => !PROCESSOS_DIGITAIS.includes(d.processo))
+    .sort((a, b) => a.processo.localeCompare(b.processo));
+
+  const anexo = await getRelatorioAnexo(empresaId, okrs, swot, metas);
+  const conclusao = montarConclusao({
+    empresa: empresa?.nome ?? "",
+    representante: empresa?.representante ?? null,
+    percentuaisMaturidade,
+    direcionamento,
+    teor,
+  });
 
   const swotItems = swot ? parseSwotRecord(swot) : null;
   const okrsFormatados = okrs
@@ -268,30 +324,26 @@ export async function getRelatorioCompleto(empresaId: number) {
       objetivo: item.objetivo,
       keyResults: item.keyResults.map((kr) => ({
         texto: kr.texto,
-        swotItens: kr.swotRefs
-          .map((ref) => {
-            const swotItem = swotItems
-              ? findSwotItem(swotItems, ref.categoria, ref.swotItemId)
-              : undefined;
-            if (!swotItem) return null;
-            return `${SWOT_LABELS[ref.categoria]}: ${swotItem.texto}`;
-          })
-          .filter((label): label is string => Boolean(label)),
+        swotItens: formatSwotRefLabels(swotItems, kr.swotRefs),
       })),
     }));
 
   return {
     empresa: empresa?.nome ?? "",
+    representante: empresa?.representante ?? null,
     email: empresa?.email ?? "",
+    dataAvaliacao: new Date().toLocaleDateString("pt-BR"),
     percentuaisMaturidade,
     mediasPorEstrutura,
-    dimensoes,
+    mediasPorPrincipio,
+    dimensoesOperacionais,
+    matrizCapacidades,
+    direcionamento,
+    teor,
+    conclusao,
+    anexo,
     resumoCapacidade,
     analise3B,
-    roadmap: roadmap.map((texto, i) => ({
-      titulo: ROADMAP_TITULOS[i] ?? `Macro-Dimensão ${i + 1}`,
-      texto,
-    })),
     swot: swot
       ? {
           forca: formatSwotItemsForDisplay(swot.forca),

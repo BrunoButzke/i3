@@ -1195,6 +1195,76 @@ label.disabled {
   margin: 0 0 1rem;
 }
 
+.i3-relatorio-doc-subsecao {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--i3-blue-800);
+  margin: 1.25rem 0 0.75rem;
+}
+
+.i3-relatorio-doc-paragrafo {
+  font-size: 0.875rem;
+  color: var(--i3-gray-700);
+  text-align: justify;
+  margin: 0 0 0.75rem;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+.i3-relatorio-doc-dimensoes {
+  margin: 0.75rem 0 1rem;
+}
+
+.i3-relatorio-doc-dimensao-item {
+  font-size: 0.8125rem;
+  color: var(--i3-gray-700);
+  text-align: justify;
+  margin-bottom: 0.65rem;
+  line-height: 1.55;
+}
+
+.i3-relatorio-doc-dimensao-item strong {
+  color: var(--i3-blue-800);
+}
+
+.i3-relatorio-doc-tabela-scroll {
+  overflow-x: auto;
+  margin: 0.75rem 0;
+}
+
+.i3-relatorio-doc-tabela-matriz {
+  font-size: 0.7rem;
+  min-width: 720px;
+}
+
+.i3-relatorio-doc-tabela-matriz th:first-child,
+.i3-relatorio-doc-tabela-matriz td:first-child {
+  text-align: left;
+  min-width: 140px;
+  max-width: 200px;
+  position: sticky;
+  left: 0;
+  background: var(--i3-white);
+  z-index: 1;
+}
+
+.i3-relatorio-doc-tabela-matriz thead th:first-child {
+  background: var(--i3-gray-100);
+}
+
+.i3-relatorio-doc-legenda {
+  font-size: 0.75rem;
+  color: var(--i3-gray-500);
+  text-align: center;
+  margin: 0.5rem 0 0;
+  font-style: italic;
+}
+
+.i3-relatorio-doc-nivel {
+  font-size: 0.8125rem;
+  color: var(--i3-gray-600);
+}
+
 .i3-relatorio-doc-meta {
   font-size: 0.875rem;
   text-align: left;
@@ -1214,7 +1284,6 @@ label.disabled {
 
 .i3-relatorio-doc-secao {
   margin-bottom: 1.75rem;
-  page-break-inside: avoid;
 }
 
 .i3-relatorio-doc-secao h3 {
@@ -1302,6 +1371,59 @@ label.disabled {
   text-align: left;
   word-wrap: break-word;
   overflow-wrap: break-word;
+}
+
+/* 6.1 — Ações por capacidade: resultado estreito, próximo nível amplo */
+.i3-relatorio-doc-tabela-acoes-capacidade {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.i3-relatorio-doc-tabela-acoes-capacidade col:nth-child(1) {
+  width: 20%;
+}
+
+.i3-relatorio-doc-tabela-acoes-capacidade col:nth-child(2) {
+  width: 17%;
+}
+
+.i3-relatorio-doc-tabela-acoes-capacidade col:nth-child(3) {
+  width: 11%;
+}
+
+.i3-relatorio-doc-tabela-acoes-capacidade col:nth-child(4) {
+  width: 52%;
+}
+
+.i3-relatorio-doc-tabela-acoes-capacidade th:nth-child(1),
+.i3-relatorio-doc-tabela-acoes-capacidade td:nth-child(1),
+.i3-relatorio-doc-tabela-acoes-capacidade th:nth-child(2),
+.i3-relatorio-doc-tabela-acoes-capacidade td:nth-child(2),
+.i3-relatorio-doc-tabela-acoes-capacidade th:nth-child(4),
+.i3-relatorio-doc-tabela-acoes-capacidade td:nth-child(4) {
+  text-align: left;
+  vertical-align: top;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.45;
+}
+
+.i3-relatorio-doc-tabela-acoes-capacidade th:nth-child(3) {
+  text-align: center;
+  vertical-align: middle;
+  white-space: normal;
+  line-height: 1.2;
+  font-size: 0.75rem;
+  padding: 0.35rem 0.2rem;
+  overflow-wrap: anywhere;
+}
+
+.i3-relatorio-doc-tabela-acoes-capacidade td:nth-child(3) {
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
 }
 
 .i3-relatorio-doc-tabela thead th {
@@ -1403,6 +1525,17 @@ label.disabled {
 .i3-relatorio-doc-swot-item.oportunidade h4 { color: #1d4ed8; }
 .i3-relatorio-doc-swot-item.ameaca h4 { color: #b45309; }
 
+.i3-relatorio-doc-tabela-swot td,
+.i3-relatorio-doc-tabela-swot th {
+  vertical-align: top;
+}
+
+.i3-relatorio-doc-tabela-swot td strong {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.8125rem;
+}
+
 .i3-relatorio-doc-rodape {
   margin-top: 2rem;
   padding-top: 0.75rem;
@@ -1414,6 +1547,115 @@ label.disabled {
 
 .i3-relatorio-doc-rodape p {
   margin: 0;
+}
+
+.i3-relatorio-doc-rodape-logo {
+  width: 40px;
+  height: auto;
+  margin: 0 auto 0.5rem;
+  display: block;
+  opacity: 0.85;
+}
+
+.i3-relatorio-doc-sumario {
+  margin: 0 0 1.75rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--i3-border);
+}
+
+.i3-relatorio-doc-sumario-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.i3-relatorio-doc-sumario-lista li {
+  margin-bottom: 0.35rem;
+}
+
+.i3-relatorio-doc-sumario-lista a {
+  color: var(--i3-blue-800);
+  text-decoration: none;
+  font-size: 0.875rem;
+}
+
+.i3-relatorio-doc-sumario-lista a:hover {
+  text-decoration: underline;
+}
+
+.i3-relatorio-doc-grafico {
+  height: 220px;
+  margin: 0.5rem 0 1rem;
+  page-break-inside: avoid;
+}
+
+.i3-relatorio-doc-grafico--teor {
+  height: min(480px, 60vh);
+  min-height: 320px;
+}
+
+.i3-relatorio-doc-capitulo > h3 {
+  margin-top: 1.25rem;
+  padding-top: 0.25rem;
+}
+
+.i3-relatorio-overlay-layout {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.i3-relatorio-sumario-nav {
+  width: 220px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  background: var(--i3-white);
+  border-right: 1px solid var(--i3-border);
+  padding: 1rem 0.75rem;
+}
+
+.i3-relatorio-sumario-titulo {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--i3-blue-800);
+  margin: 0 0 0.75rem;
+  padding: 0 0.25rem;
+}
+
+.i3-relatorio-sumario-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.i3-relatorio-sumario-lista li {
+  margin-bottom: 0.25rem;
+}
+
+.i3-relatorio-sumario-lista button {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--i3-radius-sm);
+  font-size: 0.8125rem;
+  color: var(--i3-gray-700);
+  cursor: pointer;
+  line-height: 1.35;
+}
+
+.i3-relatorio-sumario-lista button:hover {
+  background: var(--i3-blue-50);
+  color: var(--i3-blue-800);
+}
+
+.i3-relatorio-overlay-layout .i3-relatorio-overlay-body {
+  flex: 1;
+  min-width: 0;
 }
 
 .i3-relatorio-overlay {
@@ -1465,9 +1707,56 @@ label.disabled {
   .i3-relatorio-doc-tabela {
     font-size: 0.75rem;
   }
+
+  .i3-relatorio-overlay-layout {
+    flex-direction: column;
+  }
+
+  .i3-relatorio-sumario-nav {
+    width: 100%;
+    max-height: 140px;
+    border-right: none;
+    border-bottom: 1px solid var(--i3-border);
+  }
 }
 
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm;
+  }
+
+  html,
+  body {
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body.i3-print-relatorio .i3-page,
+  body.i3-print-relatorio .i3-main,
+  body.i3-print-relatorio .i3-tabs-wrapper,
+  body.i3-print-relatorio .i3-tab-content,
+  body.i3-print-relatorio .mt-3 {
+    max-width: none !important;
+    width: 100% !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  body.i3-print-relatorio .i3-relatorio-sumario-nav {
+    display: none !important;
+  }
+
   body.i3-print-relatorio .i3-header,
   body.i3-print-relatorio .i3-footer,
   body.i3-print-relatorio .i3-company-card,
@@ -1478,36 +1767,42 @@ label.disabled {
     display: none !important;
   }
 
-  body.i3-print-relatorio .i3-tab-content {
-    padding: 0;
-    background: none;
-    border: none;
-    box-shadow: none;
-  }
-
   body.i3-print-relatorio .i3-relatorio-viewport {
     background: none;
     padding: 0;
+    overflow: visible !important;
   }
 
   body.i3-print-relatorio .i3-relatorio-overlay {
-    position: static;
+    position: static !important;
+    inset: auto !important;
     background: none;
     display: block !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  body.i3-print-relatorio .i3-relatorio-overlay-layout {
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
   }
 
   body.i3-print-relatorio .i3-relatorio-overlay-body {
     padding: 0;
-    overflow: visible;
+    overflow: visible !important;
+    height: auto !important;
   }
 
   body.i3-print-relatorio .i3-relatorio-documento {
     box-shadow: none;
-    max-width: none;
-    width: auto;
+    width: 100% !important;
+    max-width: 180mm !important;
     min-height: auto;
     padding: 0;
-    margin: 0;
+    margin: 0 auto !important;
+    box-sizing: border-box;
+    overflow: visible !important;
   }
 
   body.i3-print-relatorio.i3-print-from-overlay .i3-relatorio-viewport {
@@ -1519,7 +1814,124 @@ label.disabled {
   }
 
   .i3-relatorio-doc-secao {
+    page-break-inside: auto;
+    break-inside: auto;
+  }
+
+  .i3-relatorio-doc-capitulo {
+    page-break-before: auto;
+    break-before: auto;
+    page-break-inside: auto;
+    break-inside: auto;
+  }
+
+  .i3-relatorio-doc-capitulo > h3 {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  body.i3-print-relatorio .i3-relatorio-doc-sumario-print {
+    display: none !important;
+  }
+
+  .i3-relatorio-doc-capa-print {
+    page-break-after: auto;
+    break-after: auto;
     page-break-inside: avoid;
+    break-inside: avoid;
+    margin-bottom: 0.25rem;
+    padding-bottom: 0.5rem;
+  }
+
+  body.i3-print-relatorio .i3-relatorio-doc-capa {
+    margin-bottom: 0.25rem;
+  }
+
+  body.i3-print-relatorio #cap-1 {
+    margin-top: 0.85rem;
+  }
+
+  body.i3-print-relatorio #cap-1 > h3 {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+  }
+
+  .i3-relatorio-doc-grafico {
+    height: 180px;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: auto;
+    margin-right: auto;
+    overflow: hidden;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .i3-relatorio-doc-grafico > div,
+  .i3-relatorio-doc-grafico canvas {
+    max-width: 100% !important;
+  }
+
+  .i3-relatorio-doc-grafico--teor {
+    height: 260px;
+    max-height: 260px;
+  }
+
+  .i3-relatorio-doc-item,
+  .i3-relatorio-doc-legenda {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .i3-relatorio-doc-bloco {
+    page-break-inside: auto;
+    break-inside: auto;
+  }
+
+  .i3-relatorio-doc-tabela-scroll {
+    overflow: visible !important;
+    page-break-inside: auto;
+    break-inside: auto;
+  }
+
+  .i3-relatorio-doc-tabela {
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: fixed;
+    page-break-inside: auto;
+    break-inside: auto;
+  }
+
+  .i3-relatorio-doc-tabela tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .i3-relatorio-doc-tabela-matriz {
+    min-width: 0 !important;
+    width: 100% !important;
+    font-size: 6.5pt;
+  }
+
+  .i3-relatorio-doc-tabela-matriz th:first-child,
+  .i3-relatorio-doc-tabela-matriz td:first-child {
+    position: static !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    width: 18% !important;
+  }
+
+  .i3-relatorio-doc-tabela-matriz th,
+  .i3-relatorio-doc-tabela-matriz td {
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+    hyphens: auto;
+    padding: 0.2rem 0.15rem;
+  }
+
+  .i3-relatorio-doc-sumario-lista a {
+    color: inherit;
+    text-decoration: none;
   }
 }
 

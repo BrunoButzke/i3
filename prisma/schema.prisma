@@ -153,10 +153,13 @@ model MemoriaSIRI {
 }
 
 model MacroDimensao {
-  id        Int      @id @default(autoincrement())
-  nome      String
-  nivel     Int
-  texto     String
+  id          Int    @id @default(autoincrement())
+  macroIndice Int
+  nivel       Int
+  titulo      String?
+  texto       String
+
+  @@unique([macroIndice, nivel])
 }
 
 model RespostaFinal {

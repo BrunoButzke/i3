@@ -1,4 +1,5 @@
 import {
+  TEOR_BANDAS_DEFAULTS,
   TEOR_BANDAS_IDS,
   TEOR_BENCHMARKS,
   TEOR_HEADERS,
@@ -22,6 +23,12 @@ export type TeorRankingItem = {
   valor: number;
 };
 
+const PESOS_POR_HORIZONTE: Record<string, [number, number, number]> = {
+  Operacional: [0.6, 0.2, 0.2],
+  Tático: [0.45, 0.3, 0.25],
+  Estratégico: [0.3, 0.4, 0.3],
+};
+
 function criarMatrizDeValores(
   headers: readonly string[],
   labels: readonly string[],
@@ -39,11 +46,25 @@ function criarMatrizDeValores(
 
 const matrizDeKpis = criarMatrizDeValores(TEOR_HEADERS, TEOR_KPIS, kpisMatrix);
 
+/** Normaliza vetor de 16 dimensões para soma = 1.0 (SIRI 6.7.4). */
+function normalizarVetor16(
+  valores: number[],
+  headers: readonly string[] = TEOR_HEADERS,
+): Record<string, number> {
+  const soma = valores.reduce((acc, val) => acc + val, 0);
+  const denominador = soma > 0 ? soma : 1;
+  const resultado: Record<string, number> = {};
+  for (let i = 0; i < headers.length; i++) {
+    resultado[headers[i]] = (valores[i] ?? 0) / denominador;
+  }
+  return resultado;
+}
+
+/** Passo 1 — Custos: raw ponderado pela matriz DOR, normalizado (soma = 1). */
 function calcularCustosNormalizados(
   matrix: number[][],
   percentuais: number[],
   headers: readonly string[],
-  target = 0.6,
 ): Record<string, number> {
   const colunas = matrix[0]?.length ?? 0;
   const linhas = matrix.length;
@@ -55,83 +76,59 @@ function calcularCustosNormalizados(
     }
   }
 
-  const totalRaw = rawCustos.reduce((acc, val) => acc + val, 0) || 1;
-  const resultado: Record<string, number> = {};
-  for (let i = 0; i < colunas; i++) {
-    resultado[headers[i]] = (rawCustos[i] / totalRaw) * target;
-  }
-  return resultado;
+  return normalizarVetor16(rawCustos, headers);
 }
 
-function normalizarCustos(
-  somasPorHeader: Record<string, number>,
-  quantidadeSelecionados: number,
-): Record<string, number> {
-  const total =
-    Object.values(somasPorHeader).reduce((a, b) => a + b, 0) || 1;
-  const fator = quantidadeSelecionados > 0 ? 1 / quantidadeSelecionados : 0;
-  const normalizado: Record<string, number> = {};
-  Object.entries(somasPorHeader).forEach(([header, val]) => {
-    normalizado[header] = (val / total) * fator;
-  });
-  return normalizado;
-}
+/** Passo 2 — KPIs: soma dos coeficientes DOR dos KPIs ativos (peso 1), normalizado (soma = 1). */
+function calcularKpisNormalizados(selecionados: string[]): Record<string, number> {
+  const somas = new Array(TEOR_HEADERS.length).fill(0);
 
-function calcularSomaKpis(selecionados: string[]): Record<string, number> {
-  const resultado: Record<string, number> = {};
-  Object.entries(matrizDeKpis).forEach(([header, kpiMap]) => {
+  TEOR_HEADERS.forEach((header, colIndex) => {
+    const kpiMap = matrizDeKpis[header];
     let soma = 0;
-    selecionados.forEach((kpiName) => {
+    for (const kpiName of selecionados) {
       const peso = kpiMap[kpiName];
       if (typeof peso === "number") soma += peso;
-    });
-    resultado[header] = soma;
+    }
+    somas[colIndex] = soma;
   });
-  return resultado;
+
+  return normalizarVetor16(somas);
 }
 
-function calcularBenchmarksNormalizados(
+/** Passo 3 — Proximity: max(0, referência − banda), normalizado (soma = 1). */
+function calcularProximidadeNormalizada(
   valoresSetor: number[],
   bandas: number[],
-  maxValorSetor = 5,
 ): Record<string, number> {
-  const raws = valoresSetor.map((v, i) => v - (bandas[i] ?? 0));
-  const somaRaw = raws.reduce((acc, x) => acc + x, 0);
-  const denominador = somaRaw * maxValorSetor;
-  if (denominador === 0) {
-    throw new Error("Denominador zero, verifique os dados.");
+  const raws = valoresSetor.map((v, i) =>
+    Math.max(0, v - (bandas[i] ?? 0)),
+  );
+  const soma = raws.reduce((acc, x) => acc + x, 0);
+  if (soma === 0) {
+    throw new Error(
+      "Proximidade zero: a empresa já atinge ou supera o benchmark em todas as dimensões.",
+    );
   }
-  const resultado: Record<string, number> = {};
-  raws.forEach((raw, i) => {
-    resultado[TEOR_HEADERS[i]] = raw / denominador;
-  });
-  return resultado;
+  return normalizarVetor16(raws);
 }
 
 function agregarResumo(
   custos: Record<string, number>,
   kpis: Record<string, number>,
-  benchmark: Record<string, number>,
+  proximidade: Record<string, number>,
   horizonte: string | null,
 ): Record<string, number> {
-  const pesosPorHorizonte: Record<string, number[]> = {
-    Operacional: [0.6, 0.2, 0.2],
-    Tático: [0.45, 0.3, 0.25],
-    Estratégico: [0.3, 0.4, 0.3],
-  };
-  const pesos = pesosPorHorizonte[horizonte ?? ""] ?? [1, 1, 1];
-  const todasChaves = new Set([
-    ...Object.keys(custos),
-    ...Object.keys(kpis),
-    ...Object.keys(benchmark),
-  ]);
+  const pesos = PESOS_POR_HORIZONTE[horizonte ?? ""] ?? [1, 1, 1];
+  const [wCost, wKpi, wProximity] = pesos;
+
   const resumo: Record<string, number> = {};
-  todasChaves.forEach((chave) => {
+  for (const chave of TEOR_HEADERS) {
     const custo = custos[chave] ?? 0;
     const kpi = kpis[chave] ?? 0;
-    const bench = benchmark[chave] ?? 0;
-    resumo[chave] = custo * pesos[0] + kpi * pesos[1] + bench * pesos[2];
-  });
+    const prox = proximidade[chave] ?? 0;
+    resumo[chave] = custo * wCost + kpi * wKpi + prox * wProximity;
+  }
   return resumo;
 }
 
@@ -191,7 +188,8 @@ function encontrarMaximosComRestante(
   return items;
 }
 
-export function calcularTeor(input: TeorInput): TeorRankingItem[] {
+/** Retorna Impact Values (resumo[j]) por dimensão SIRI — SIRI Learner's Guide 6.7.4. */
+export function calcularTeorResumo(input: TeorInput): Record<string, number> {
   if (input.benchmarkIndex == null) {
     throw new Error("Selecione um benchmark.");
   }
@@ -206,24 +204,24 @@ export function calcularTeor(input: TeorInput): TeorRankingItem[] {
     custosMatrix,
     input.percentuaisCustos,
     TEOR_HEADERS,
-    0.6,
   );
-  const somas = calcularSomaKpis(input.kpisSelecionados);
-  const normalizados = normalizarCustos(
-    somas,
-    input.kpisSelecionados.length,
-  );
+  const kpisNormalizados = calcularKpisNormalizados(input.kpisSelecionados);
   const valoresSetor = benchmarksMatrix[input.benchmarkIndex];
-  const resultadosBench = calcularBenchmarksNormalizados(
+  const proximidadeNormalizada = calcularProximidadeNormalizada(
     valoresSetor,
     input.bandas,
   );
-  const resumo = agregarResumo(
+
+  return agregarResumo(
     custosNormalizados,
-    normalizados,
-    resultadosBench,
+    kpisNormalizados,
+    proximidadeNormalizada,
     input.horizonte,
   );
+}
+
+export function calcularTeor(input: TeorInput): TeorRankingItem[] {
+  const resumo = calcularTeorResumo(input);
   return encontrarMaximosComRestante(resumo);
 }
 
@@ -250,7 +248,9 @@ export function parseTeorFromDados(dados: Record<string, unknown>): TeorInput {
     .map((s) => s.trim())
     .filter(Boolean);
 
-  const benchmarkStr = String(dados.benchmarkString ?? "").trim();
+  const benchmarkStr = String(
+    dados.benchmarkString ?? dados.benchmark ?? "",
+  ).trim();
   const benchmarkIndex = benchmarkStr
     ? TEOR_BENCHMARKS.findIndex(
         (b) => b.toLowerCase() === benchmarkStr.toLowerCase(),
@@ -259,15 +259,20 @@ export function parseTeorFromDados(dados: Record<string, unknown>): TeorInput {
   const benchmarkIdx = benchmarkIndex >= 0 ? benchmarkIndex : null;
 
   const bandas = TEOR_BANDAS_IDS.map((id) => {
-    const v = parseFloat(String(dados[id] ?? 0));
-    return Number.isNaN(v) ? 0 : v;
+    const raw = dados[id];
+    if (raw === undefined || raw === null || String(raw).trim() === "") {
+      return TEOR_BANDAS_DEFAULTS[id] ?? 0;
+    }
+    const v = parseFloat(String(raw));
+    return Number.isNaN(v) ? (TEOR_BANDAS_DEFAULTS[id] ?? 0) : v;
   });
 
   return {
     percentuaisCustos,
     kpisSelecionados,
     benchmarkIndex: benchmarkIdx,
-    horizonte: String(dados.horizonteString ?? "").trim() || null,
+    horizonte:
+      String(dados.horizonteString ?? dados.horizonte ?? "").trim() || null,
     bandas,
   };
 }

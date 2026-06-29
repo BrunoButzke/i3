@@ -17,6 +17,7 @@ import {
   isJunkQuestaoRow,
 } from "../src/lib/segmentos-import";
 import { syncRespostasFromFinais } from "../src/lib/services/i3-service";
+import { parseMacroDimensoesRows } from "../src/lib/relatorio/parse-macro-dimensoes";
 
 const RESPOSTA_TIPOS = [
   "Informatização",
@@ -456,19 +457,11 @@ async function importMemoriaSIRI(prisma: PrismaClient, rows: Row[]) {
 }
 
 async function importMacroDimensoes(prisma: PrismaClient, rows: Row[]) {
-  const data: Prisma.MacroDimensaoCreateManyInput[] = [];
-  for (const row of rows) {
-    const nivel = num(row[0]);
-    const texto = str(row[2]);
-    if (nivel == null || !texto) continue;
-    data.push({
-      nome: `Macro-Dimensão nível ${nivel}`,
-      nivel: Math.trunc(nivel),
-      texto,
-    });
+  const parsed = parseMacroDimensoesRows(rows);
+  if (parsed.length) {
+    await prisma.macroDimensao.createMany({ data: parsed });
   }
-  if (data.length) await prisma.macroDimensao.createMany({ data });
-  console.log(`  ✓ Macro Dimensões: ${data.length}`);
+  console.log(`  ✓ Macro Dimensões: ${parsed.length}`);
 }
 
 async function main() {

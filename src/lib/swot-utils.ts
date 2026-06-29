@@ -23,6 +23,30 @@ export const SWOT_LABELS: Record<SwotKey, string> = {
   ameaca: "Ameaça",
 };
 
+const SWOT_KEY_ALIASES: Record<string, SwotKey> = {
+  forca: "forca",
+  força: "forca",
+  fraqueza: "fraqueza",
+  oportunidade: "oportunidade",
+  ameaca: "ameaca",
+  ameaça: "ameaca",
+};
+
+export function normalizeSwotKey(raw: string): SwotKey | null {
+  const trimmed = raw.trim();
+  const key =
+    SWOT_KEY_ALIASES[trimmed] ??
+    SWOT_KEY_ALIASES[trimmed.toLowerCase()] ??
+    trimmed.toLowerCase();
+  return SWOT_KEYS.includes(key as SwotKey) ? (key as SwotKey) : null;
+}
+
+export type SwotRefLike = {
+  categoria: string;
+  swotItemId: string;
+  texto?: string;
+};
+
 export function createSwotItem(texto: string, id?: string): SwotItem {
   return {
     id: id?.trim() || crypto.randomUUID(),
@@ -46,8 +70,15 @@ function normalizeSwotItem(raw: unknown): SwotItem | null {
   return createSwotItem(texto, id);
 }
 
+function legacySwotItemId(categoria: SwotKey, index: number): string {
+  return `${categoria}:${index}`;
+}
+
 /** Converte texto legado (livre), JSON de strings ou JSON de objetos em lista de itens. */
-export function parseSwotItems(raw: string | null | undefined): SwotItem[] {
+export function parseSwotItems(
+  raw: string | null | undefined,
+  categoria?: SwotKey,
+): SwotItem[] {
   if (!raw?.trim()) return [];
 
   const trimmed = raw.trim();
@@ -69,10 +100,20 @@ export function parseSwotItems(raw: string | null | undefined): SwotItem[] {
       .split("\n")
       .map((line) => line.trim())
       .filter(Boolean)
-      .map((texto) => createSwotItem(texto));
+      .map((texto, index) =>
+        createSwotItem(
+          texto,
+          categoria ? legacySwotItemId(categoria, index) : undefined,
+        ),
+      );
   }
 
-  return [createSwotItem(trimmed)];
+  return [
+    createSwotItem(
+      trimmed,
+      categoria ? legacySwotItemId(categoria, 0) : undefined,
+    ),
+  ];
 }
 
 export function serializeSwotItems(items: SwotItem[]): string {
@@ -92,10 +133,10 @@ export function parseSwotRecord(row: {
   ameaca: string | null;
 }): SwotItems {
   return {
-    forca: parseSwotItems(row.forca),
-    fraqueza: parseSwotItems(row.fraqueza),
-    oportunidade: parseSwotItems(row.oportunidade),
-    ameaca: parseSwotItems(row.ameaca),
+    forca: parseSwotItems(row.forca, "forca"),
+    fraqueza: parseSwotItems(row.fraqueza, "fraqueza"),
+    oportunidade: parseSwotItems(row.oportunidade, "oportunidade"),
+    ameaca: parseSwotItems(row.ameaca, "ameaca"),
   };
 }
 
@@ -128,7 +169,62 @@ export function findSwotItem(
   categoria: SwotKey,
   swotItemId: string,
 ): SwotItem | undefined {
-  return items[categoria]?.find((item) => item.id === swotItemId);
+  return resolveSwotRef(items, { categoria, swotItemId }) ?? undefined;
+}
+
+/** Resolve referência SWOT por id, categoria normalizada ou texto persistido. */
+export function resolveSwotRef(
+  items: SwotItems | null,
+  ref: SwotRefLike,
+): SwotItem | null {
+  const categoria = normalizeSwotKey(ref.categoria);
+  const swotItemId = ref.swotItemId.trim();
+
+  if (items && categoria) {
+    const naCategoria = items[categoria]?.find((item) => item.id === swotItemId);
+    if (naCategoria) return naCategoria;
+  }
+
+  if (items) {
+    for (const key of SWOT_KEYS) {
+      const encontrado = items[key]?.find((item) => item.id === swotItemId);
+      if (encontrado) return encontrado;
+    }
+  }
+
+  const textoPersistido = ref.texto?.trim();
+  if (textoPersistido) {
+    return { id: swotItemId, texto: textoPersistido };
+  }
+
+  return null;
+}
+
+function findSwotItemCategory(
+  items: SwotItems,
+  swotItemId: string,
+): SwotKey | null {
+  for (const key of SWOT_KEYS) {
+    if (items[key]?.some((item) => item.id === swotItemId)) return key;
+  }
+  return null;
+}
+
+export function formatSwotRefLabels(
+  items: SwotItems | null,
+  refs: SwotRefLike[],
+): string[] {
+  return refs
+    .map((ref) => {
+      const item = resolveSwotRef(items, ref);
+      if (!item) return null;
+      const categoria =
+        (items ? findSwotItemCategory(items, ref.swotItemId) : null) ??
+        normalizeSwotKey(ref.categoria);
+      const label = categoria ? SWOT_LABELS[categoria] : ref.categoria;
+      return `${label}: ${item.texto}`;
+    })
+    .filter((label): label is string => Boolean(label));
 }
 
 export function listAllSwotItems(
